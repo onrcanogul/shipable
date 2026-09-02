@@ -1,109 +1,67 @@
-# app-backend-template
+# app-template
 
-A Spring Boot backend starter for indie mobile apps. Everything an app needs before it does
-anything interesting is here, already built and domain-agnostic:
+A starter for indie mobile apps: a Spring Boot backend and a React Native client, in one
+repository, sharing one contract.
 
-- **Sign-in** — Sign in with Apple, Google Sign-In, anonymous device accounts, and
-  anonymous-to-account linking, with session tokens this backend issues itself.
-- **Subscriptions** — RevenueCat entitlements with an authenticated webhook and a local
-  snapshot, so a paywall check is a local query.
-- **Quotas** — entitlement-to-limit mapping and a usage ledger.
-- **Push and e-mail** — device registry and sender ports, no vendor chosen yet.
-- **Remote config** — minimum supported version, force update, maintenance mode, feature
-  flags.
-- **An admin API** — change rate limits, flip feature flags, raise the minimum version and
-  enable maintenance at runtime, without a redeploy.
-- **Redis** — optional; turn it on and rate limiting, idempotency and caching become shared
-  across instances.
-- **Account deletion and data export** — the two compliance obligations the app stores
-  actually check.
-- **The unglamorous parts** — one error shape, request ids in every log line, validation,
-  per-IP rate limiting, `Idempotency-Key` handling.
+Everything an app needs before it does anything interesting is already built and
+domain-agnostic — sign-in, subscriptions, quotas, remote config, push, account deletion, and
+the unglamorous request-pipeline work underneath. Clone it, write your app in the two empty
+`domain` modules, and never build this layer again.
 
-Clone it, write your app in `domain`, and never build this layer again.
+    backend/      Spring Boot, Java 21, PostgreSQL      → backend/README.md
+    mobile/       React Native, Expo SDK 57             → mobile/README.md
 
 ## Quick start
 
-    git clone <this repo> my-app && cd my-app
-    cd infra && cp .env.example .env
+Backend first — the app needs something to talk to.
+
+    cd backend/infra
+    cp .env.example .env
     # set APP_JWT_SECRET: openssl rand -base64 48
-    docker compose up --build
+    docker compose up -d --build
 
-    # with Redis:
-    # APP_CACHE_ENABLED=true in .env, then
-    docker compose --profile redis up --build
+Then the app:
 
-- API — http://localhost:8080/api/v1/health
-- Swagger UI — http://localhost:8080/swagger-ui.html
+    cd mobile
+    cp .env.example .env      # point EXPO_PUBLIC_API_BASE_URL at the backend
+    npm install
+    npm start
 
-Without Docker:
+Open it and you get a login screen. **Continue as guest** works end to end: the backend
+issues a session, the app stores it, and the next call is authenticated.
 
-    ./mvnw verify
-    APP_JWT_SECRET=$(openssl rand -base64 48) ./mvnw -pl host spring-boot:run
+## The two halves share a contract
+
+They are in one repository so that contract changes in one place. The clearest example is
+error handling: `ErrorCodes.java` and `mobile/src/platform/core/api/errors.ts` are a pair,
+and the client branches on `code` — never on `message`.
+
+The client mirrors the backend in *responsibility*, not file-for-file. It has no tables and
+no SPI, so some server modules collapse into a couple of functions.
 
 ## Requirements
 
-Java 21, Docker (optional locally; needed for the integration test and for running the
-stack). Maven comes from the wrapper.
-
-## Layout
-
-    mobile/       the React Native app (Expo). See mobile/README.md
-    platform/     reusable modules; none of them know what your app does
-      core/           request pipeline, errors, base entity, rate limit, idempotency
-      cache/          Redis (optional): cache, shared rate limiting and idempotency
-      identity/       sign-in and sessions
-      billing/        RevenueCat
-      quota/          limits and usage
-      notifications/  device tokens, push and e-mail ports
-      analytics/      event port
-      appconfig/      version gating, maintenance, feature flags
-      privacy/        account deletion and data export
-      admin/          operator API under /api/admin/v1
-    domain/       YOUR APP. Ships empty.
-    host/         the Spring Boot application
-    infra/        docker compose, Caddy, .env.example
-    docs/
-
-The mobile app mirrors the backend in responsibility rather than file-for-file, and shares
-its error-code contract: `mobile/src/platform/core/api/errors.ts` and `ErrorCodes.java` are
-a pair.
-
-Each module has its own README covering what it does, what tables it owns, what it exposes,
-and — explicitly — what it does not do.
-
-## Read next
-
-| Document | For |
-| --- | --- |
-| [docs/BUILDING-YOUR-APP.md](docs/BUILDING-YOUR-APP.md) | Rename it, write your first feature, ship |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The rules and why they are there |
-| [mobile/README.md](mobile/README.md) | The React Native app |
-| [infra/README.md](infra/README.md) | Running it locally and on a VPS |
+Java 21 and Docker for the backend; Node 22 for the app. Maven comes from the wrapper.
 
 ## Honest status
 
-This is a **skeleton with real boundaries**, not a finished backend. The structure,
-configuration, error handling, filters, schema, JWT issuing and architecture tests are
-done. The integrations are not:
+A **skeleton with real boundaries**, not a finished product. Structure, configuration, error
+handling, the request pipeline, migrations, guest sign-in, the admin API and the deployment
+setup are done. The third-party integrations are not:
 
 | Works today | Still a TODO |
 | --- | --- |
-| Request pipeline, errors, validation | Apple/Google token verification |
-| Guest sign-in, refresh with rotation, sign-out | Linking a guest account to a real one |
-| Rate limiting and idempotency, in memory **and** on Redis | — |
-| Runtime settings: read, write, validate, refresh | — |
-| Admin API: settings, flags, version gating, info | Admin UI, user management |
-| Feature flags and version gating, read from the database | Percentage rollouts |
-| Webhook authentication, 202-then-process | RevenueCat API calls and event processing |
-| Quota wiring, entitlement lookup | Rolling-window accounting, ledger writes |
-| Data export fan-out | Deletion execution and its sweep job |
-| Migrations, Docker, Caddy, dev/prod profiles, CI/CD | Push/e-mail providers, backups |
+| Guest sign-in, refresh with rotation, sign-out | Apple/Google token verification |
+| Request pipeline, errors, validation, rate limiting | Linking a guest account to a real one |
+| Runtime settings and the admin API | RevenueCat API calls and webhook processing |
+| Feature flags, version gating, maintenance mode | Quota window accounting |
+| Redis cache, idempotency | Account deletion execution |
+| Migrations, Docker, Caddy, CI/CD | Push and e-mail providers |
 
-Every TODO sits in the code with notes on how to do it and which mistakes to avoid.
-`docs/BUILDING-YOUR-APP.md` has the full checklist.
+Every TODO sits in the code with notes on how to do it and which mistakes to avoid. The
+per-half READMEs have the full checklists.
 
-The design principle behind the gaps: **an unimplemented feature denies rather than
-allows**. Nobody is entitled to anything, no quota passes, and token verification throws
-rather than returning a "verified" identity. A stub that silently succeeds is how a template
-becomes a security incident.
+The principle behind the gaps: **an unimplemented feature denies rather than allows.** Nobody
+is entitled to anything, no quota passes, and token verification throws rather than
+returning a "verified" identity. A stub that silently succeeds is how a template becomes a
+security incident.

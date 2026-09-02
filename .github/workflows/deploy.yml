@@ -30,6 +30,7 @@ jobs:
       # Deliberately re-run rather than trusting the CI run: this is the last gate
       # before production, and the cost is a couple of minutes.
       - name: Build and test
+        working-directory: backend
         run: ./mvnw -B verify
 
       # ---------------------------------------------------------------------
@@ -62,8 +63,8 @@ jobs:
             cd ~/app-backend
             git fetch --prune origin
             git reset --hard origin/main
-            cd infra
-            docker compose up -d --build
+            cd backend/infra
+            docker compose --profile standalone up -d --build
             # Old image layers accumulate until the disk fills, which on a small VPS
             # takes weeks and always happens at a bad moment.
             docker image prune -f

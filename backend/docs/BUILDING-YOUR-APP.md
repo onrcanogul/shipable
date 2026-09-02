@@ -122,7 +122,7 @@ a shipped client will be branching on them long after you change the server.
 - [ ] Swap in a real `PushSender` if you send push.
 - [ ] Move rate limiting and idempotency to Redis or the database **before** the second
       instance. Both are in-memory and single-instance today.
-- [ ] Set up database backups. There are none — see `infra/README.md`.
+- [ ] Set up database backups. There are none — see [`../infra/README.md`](../infra/README.md).
 - [ ] Set `APP_MIN_VERSION` and fill in `appconfig.platform_config`.
 
 Each item is a TODO in the code, next to the notes on how to do it.

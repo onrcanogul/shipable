@@ -65,4 +65,4 @@ Thumbs.db
 desktop.ini
 
 # --- Local docker volumes ---
-infra/data/
+backend/infra/data/

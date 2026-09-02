@@ -52,4 +52,5 @@ so an upgrade can never collide with your tables.
 
 ## Where to start
 
-`docs/BUILDING-YOUR-APP.md` walks through adding a feature end to end.
+[`../docs/BUILDING-YOUR-APP.md`](../docs/BUILDING-YOUR-APP.md) walks through adding a
+feature end to end.

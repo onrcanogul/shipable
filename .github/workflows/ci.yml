@@ -14,6 +14,9 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
 
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +38,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: '**/target/*-reports/*.xml'
+          path: 'backend/**/target/*-reports/*.xml'
           if-no-files-found: ignore
           retention-days: 7
 
