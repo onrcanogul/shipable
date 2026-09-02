@@ -47,7 +47,7 @@ class CoreModuleContextTest {
                     .toList();
 
             assertThat(registrations)
-                    .containsExactly("RequestContextFilter", "RateLimitFilter", "IdempotencyFilter");
+                    .containsExactly("RequestContextBindingFilter", "RateLimitFilter", "IdempotencyFilter");
         });
     }
 

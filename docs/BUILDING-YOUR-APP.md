@@ -64,7 +64,9 @@ sends is a claim, and trusting one is how people read each other's data.
 
 **Register the beans** in `DomainModuleConfiguration`. Nothing is component-scanned.
 
-**Add the migration location** — already there: `classpath:db/migration/domain`.
+**No migration wiring needed** — `domain` is already registered in
+`host/config/FlywayConfiguration`, which runs one Flyway per module. Your migrations are
+versioned independently of every platform module: start at `V1`, keep counting.
 
 ## 5. The two beans that are easy to forget
 
@@ -131,7 +133,7 @@ Say you never send push:
 
 1. Drop the dependency from `host/pom.xml` and `domain/pom.xml`.
 2. Drop `NotificationsModuleConfiguration` from `@Import` in `Application`.
-3. Drop `classpath:db/migration/notifications` from `spring.flyway.locations`.
+3. Drop its entry from `MODULE_SCHEMAS` in `host/config/FlywayConfiguration`.
 4. Delete `platform/notifications` and its line in `platform/pom.xml`.
 
 Nothing else refers to it. That is what the boundaries are for.

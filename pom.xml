@@ -197,6 +197,15 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
         <version>${maven-failsafe-plugin.version}</version>
+        <configuration>
+          <!--
+            spring-boot:repackage replaces the module's jar with an executable one, whose
+            classes live under BOOT-INF/. Failsafe would scan that and fail to find
+            @SpringBootConfiguration. Pointing it at the plain output directory is the
+            documented fix.
+          -->
+          <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+        </configuration>
         <executions>
           <execution>
             <goals>

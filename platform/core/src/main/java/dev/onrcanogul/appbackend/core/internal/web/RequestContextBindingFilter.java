@@ -18,8 +18,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>Also pushes the request id into the logging MDC, so every log line from this request
  * carries it. That single detail is the difference between "a user reports a bug" and
  * "here is exactly what happened".
+ *
+ * <p>Named {@code ...BindingFilter} rather than {@code RequestContextFilter} because Spring
+ * already has a class and an auto-configured bean by that name. Sharing it makes the
+ * application fail to start with a bean definition conflict, and sharing the class name
+ * makes every import a coin toss.
  */
-public class RequestContextFilter extends OncePerRequestFilter {
+public class RequestContextBindingFilter extends OncePerRequestFilter {
 
     public static final String REQUEST_ID_HEADER = "X-Request-Id";
     public static final String PLATFORM_HEADER = "X-Client-Platform";

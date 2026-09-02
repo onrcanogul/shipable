@@ -128,7 +128,19 @@ Each module owns a Postgres schema named after it — `identity`, `billing`, `qu
 `notifications`, `appconfig`, `privacy`. Your tables live in `app`, so a platform upgrade
 can never collide with them.
 
-Migrations are per module (`db/migration/<module>/`), listed in `spring.flyway.locations`.
+Migrations are per module (`db/migration/<module>/`), and **each module gets its own Flyway
+instance**, with its own `flyway_schema_history` table inside its own schema. See
+`host/config/FlywayConfiguration`.
+
+One Flyway with several locations does not work here: Flyway merges every location into a
+single version sequence, and two migrations with the same version are a hard error. Every
+module starts at `V1__init.sql`, so the application would refuse to start. Giving each
+module a reserved version range instead would make its numbering depend on a global scheme
+— the cross-module coupling the rest of this design avoids.
+
+With one instance per module, `identity` can reach V12 without knowing `billing` exists, and
+dropping a module drops its schema and its history together.
+
 Hibernate runs with `ddl-auto: validate`: Flyway owns the schema, and two things editing the
 same tables leaves no record of who did what.
 

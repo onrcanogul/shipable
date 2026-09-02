@@ -5,7 +5,7 @@ import java.util.Optional;
 /**
  * Carries the {@link RequestContext} for the duration of a request.
  *
- * <p>Only {@code RequestContextFilter} writes here; everyone else reads.
+ * <p>Only {@code RequestContextBindingFilter} writes here; everyone else reads.
  *
  * <p>TODO: register a {@code TaskDecorator} so the context survives being handed to an
  * {@code @Async} executor.
@@ -25,12 +25,12 @@ public final class RequestContextHolder {
         return current().map(RequestContext::requestId).orElse("no-request");
     }
 
-    /** Called by RequestContextFilter only. */
+    /** Called by RequestContextBindingFilter only. */
     public static void set(RequestContext context) {
         CURRENT.set(context);
     }
 
-    /** Called by RequestContextFilter only, from a finally block. */
+    /** Called by RequestContextBindingFilter only, from a finally block. */
     public static void clear() {
         CURRENT.remove();
     }

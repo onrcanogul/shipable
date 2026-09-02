@@ -17,6 +17,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestValueException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 /**
@@ -72,6 +74,25 @@ public class GlobalExceptionHandler {
         log.debug("Malformed request", e);
         return respond(HttpStatus.BAD_REQUEST,
                 AppError.of(ErrorCodes.MALFORMED_REQUEST, "Request could not be read"));
+    }
+
+    /**
+     * Wrong content type, or the wrong verb on a real path.
+     *
+     * <p>Handled explicitly because the catch-all below would turn them into 500s, and a
+     * caller sending {@code text/plain} by accident would be told the server broke.
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ProblemBody> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException e) {
+        return respond(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                AppError.of(ErrorCodes.MALFORMED_REQUEST,
+                        "Content-Type " + e.getContentType() + " is not supported here"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ProblemBody> handleMethodNotAllowed(HttpRequestMethodNotSupportedException e) {
+        return respond(HttpStatus.METHOD_NOT_ALLOWED,
+                AppError.of(ErrorCodes.MALFORMED_REQUEST, e.getMethod() + " is not allowed here"));
     }
 
     @ExceptionHandler(NoHandlerFoundException.class)

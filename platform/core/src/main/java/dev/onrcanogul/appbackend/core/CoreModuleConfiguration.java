@@ -12,7 +12,7 @@ import dev.onrcanogul.appbackend.core.api.support.PropertiesRuntimeSettings;
 import dev.onrcanogul.appbackend.core.internal.web.GlobalExceptionHandler;
 import dev.onrcanogul.appbackend.core.internal.web.IdempotencyFilter;
 import dev.onrcanogul.appbackend.core.internal.web.RateLimitFilter;
-import dev.onrcanogul.appbackend.core.internal.web.RequestContextFilter;
+import dev.onrcanogul.appbackend.core.internal.web.RequestContextBindingFilter;
 import java.time.Clock;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,7 +31,7 @@ import org.springframework.scheduling.annotation.Scheduled;
  *
  * <p>Filter order is deliberate and worth reading top to bottom:
  * <ol>
- *   <li>{@link RequestContextFilter} — everything after it can log a request id.</li>
+ *   <li>{@link RequestContextBindingFilter} — everything after it can log a request id.</li>
  *   <li>{@link RateLimitFilter} — reject floods before spending anything on them.</li>
  *   <li>{@link IdempotencyFilter} — catch retries before they reach a controller.</li>
  * </ol>
@@ -97,8 +97,8 @@ public class CoreModuleConfiguration {
     }
 
     @Bean
-    public FilterRegistrationBean<RequestContextFilter> requestContextFilter() {
-        return register(new RequestContextFilter(), Ordered.HIGHEST_PRECEDENCE + 10);
+    public FilterRegistrationBean<RequestContextBindingFilter> requestContextBindingFilter() {
+        return register(new RequestContextBindingFilter(), Ordered.HIGHEST_PRECEDENCE + 10);
     }
 
     @Bean

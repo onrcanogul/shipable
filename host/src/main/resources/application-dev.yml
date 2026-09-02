@@ -12,7 +12,8 @@ spring:
         format_sql: true
 
   flyway:
-    # Lets you drop the database and start over without hand-editing the history table.
+    # Lets you drop everything and start over without hand-editing history tables.
+    # Inherited by every module's Flyway instance, so `clean` reaches them all.
     clean-disabled: false
 
 server:

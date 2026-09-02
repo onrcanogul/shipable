@@ -33,18 +33,14 @@ spring:
 
   flyway:
     enabled: true
-    # One location per module. A new module means one more line here - the only place in
-    # the application that has to know a module exists at all.
-    locations:
-      - classpath:db/migration/core
-      - classpath:db/migration/identity
-      - classpath:db/migration/billing
-      - classpath:db/migration/quota
-      - classpath:db/migration/notifications
-      - classpath:db/migration/appconfig
-      - classpath:db/migration/privacy
-      - classpath:db/migration/domain
-
+    # Which modules get migrated, and into which schema, is decided in
+    # host/config/FlywayConfiguration - one Flyway instance per module, each with its own
+    # history table. `locations` is deliberately absent: a single Flyway merges every
+    # location into one version sequence, and every module here starts at V1.
+    #
+    # Everything else under spring.flyway.* still applies - each module's instance inherits
+    # this configuration and overrides only its location and schema.
+    clean-disabled: true
   data:
     redis:
       host: ${APP_REDIS_HOST:localhost}
