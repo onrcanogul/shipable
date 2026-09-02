@@ -1,0 +1,82 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # Also runnable by hand, for redeploying without an empty commit.
+  workflow_dispatch:
+
+# Never two deploys at once, and no cancelling one halfway - a half-applied deploy
+# is worse than a late one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # Deliberately re-run rather than trusting the CI run: this is the last gate
+      # before production, and the cost is a couple of minutes.
+      - name: Build and test
+        run: ./mvnw -B verify
+
+      # ---------------------------------------------------------------------
+      # Everything below needs repository secrets. Set them in
+      # Settings -> Secrets and variables -> Actions:
+      #
+      #   SSH_HOST            the server's hostname or IP
+      #   SSH_USER            a user in the docker group; not root
+      #   SSH_PRIVATE_KEY     a deploy key, passphrase-free, used only for this
+      #   SSH_PORT            optional, defaults to 22
+      #
+      # The server needs the repository checked out and infra/.env filled in once,
+      # by hand. Secrets are not copied by this workflow on purpose - the fewer
+      # places a production secret travels through, the better.
+      # ---------------------------------------------------------------------
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pinning the host key rather than accepting any: StrictHostKeyChecking=no
+          # would let anything answering on that address take the deploy.
+          ssh-keyscan -p "${{ secrets.SSH_PORT || 22 }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.SSH_PORT || 22 }}" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -euo pipefail <<'REMOTE'
+            cd ~/app-backend
+            git fetch --prune origin
+            git reset --hard origin/main
+            cd infra
+            docker compose up -d --build
+            # Old image layers accumulate until the disk fills, which on a small VPS
+            # takes weeks and always happens at a bad moment.
+            docker image prune -f
+          REMOTE
+
+      - name: Verify the deployment is serving
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS "https://${{ secrets.SSH_HOST }}/api/v1/health" > /dev/null; then
+              echo "Healthy after ${attempt} attempt(s)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Service did not become healthy within two minutes"
+          exit 1

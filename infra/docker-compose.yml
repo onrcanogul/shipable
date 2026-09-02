@@ -1,0 +1,93 @@
+# Local and single-server production run.
+#
+#   cd infra && cp .env.example .env && $EDITOR .env
+#   docker compose up --build
+#
+# Three containers: Postgres, the API, and Caddy in front doing TLS.
+
+name: app-backend
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # No ports published. The database is reachable from the api container over the
+    # compose network and from nowhere else - an exposed 5432 with a weak password is
+    # how these servers get found.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        # Wait for Postgres to accept connections, not merely to have started. Flyway
+        # runs at boot and fails the whole application if the database is not there yet.
+        condition: service_healthy
+    environment:
+      APP_DB_URL: ${APP_DB_URL}
+      APP_DB_USERNAME: ${APP_DB_USERNAME}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      APP_DB_POOL_SIZE: ${APP_DB_POOL_SIZE}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      APP_JWT_ISSUER: ${APP_JWT_ISSUER}
+      APP_ACCESS_TOKEN_TTL: ${APP_ACCESS_TOKEN_TTL}
+      APP_REFRESH_TOKEN_TTL: ${APP_REFRESH_TOKEN_TTL}
+      APP_APPLE_BUNDLE_IDS: ${APP_APPLE_BUNDLE_IDS}
+      APP_GOOGLE_CLIENT_IDS: ${APP_GOOGLE_CLIENT_IDS}
+      APP_REVENUECAT_API_KEY: ${APP_REVENUECAT_API_KEY}
+      APP_REVENUECAT_API_BASE_URL: ${APP_REVENUECAT_API_BASE_URL}
+      APP_REVENUECAT_WEBHOOK_SECRET: ${APP_REVENUECAT_WEBHOOK_SECRET}
+      APP_REVENUECAT_TIMEOUT: ${APP_REVENUECAT_TIMEOUT}
+      APP_RATE_LIMIT_PERMITS: ${APP_RATE_LIMIT_PERMITS}
+      APP_RATE_LIMIT_WINDOW: ${APP_RATE_LIMIT_WINDOW}
+      APP_MIN_VERSION: ${APP_MIN_VERSION}
+      APP_VERSION_GATE_ENABLED: ${APP_VERSION_GATE_ENABLED}
+      APP_DELETION_GRACE_PERIOD: ${APP_DELETION_GRACE_PERIOD}
+      APP_PORT: 8080
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL}
+    # Also unpublished: Caddy is the only way in, so TLS cannot be bypassed by
+    # hitting the port directly.
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Named volumes, not bind mounts: losing these means re-issuing certificates,
+      # and Let's Encrypt rate-limits that per domain per week.
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

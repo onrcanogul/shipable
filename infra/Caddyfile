@@ -1,0 +1,40 @@
+# Caddy in front of the API. It gets and renews a TLS certificate on its own, which is
+# the reason it is here rather than nginx.
+#
+# Set APP_DOMAIN to `localhost` for local runs and Caddy issues an internal certificate
+# instead of talking to Let's Encrypt.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode gzip zstd
+
+	# The client's real address. RequestContextFilter reads X-Forwarded-For for rate
+	# limiting, and it is only trustworthy because this proxy sets it - a client can
+	# forge the header, so never expose the API port directly.
+	reverse_proxy api:8080 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Actuator is for your monitoring, not the internet. It can expose configuration
+	# and environment details, so it does not leave the server.
+	@actuator path /actuator/*
+	respond @actuator 404
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		# The server header otherwise announces exactly what to look up exploits for.
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

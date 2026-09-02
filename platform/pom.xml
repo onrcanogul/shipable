@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>dev.onrcanogul</groupId>
+    <artifactId>app-backend-template</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>platform</artifactId>
+  <packaging>pom</packaging>
+  <name>platform</name>
+  <description>Reusable, domain-agnostic modules. Every indie app needs these; none of them know what your app does.</description>
+
+  <modules>
+    <module>core</module>
+    <module>identity</module>
+    <module>billing</module>
+    <module>quota</module>
+    <module>notifications</module>
+    <module>analytics</module>
+    <module>appconfig</module>
+    <module>privacy</module>
+  </modules>
+
+  <build>
+    <plugins>
+      <!--
+        ARCHITECTURE RULE (enforced at build time):
+        platform/* modules never depend on the domain module. The dependency direction is
+        one-way: domain -> platform. That is what makes this repo cloneable: you delete
+        your domain code and the platform still stands.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>platform-must-not-depend-on-domain</id>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <searchTransitive>true</searchTransitive>
+                  <excludes>
+                    <exclude>dev.onrcanogul:domain</exclude>
+                  </excludes>
+                  <message>
+                    platform/* modules must not depend on the domain module.
+                    The dependency direction is always domain -&gt; platform.
+                  </message>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
