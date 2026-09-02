@@ -1,23 +1,17 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {
-  bootstrap,
-  currentSession,
-  fetchEntitlements,
-  noEntitlements,
-  remoteConfig,
-  type BootstrapResult,
-  type Entitlements,
-} from './src/platform';
+import { bootstrap, remoteConfig, subscribeToSession, type BootstrapResult } from './src/platform';
+import { HomeScreen } from './src/screens/HomeScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 
 /**
- * A shell, not a design.
+ * What the app does at launch, and which screen that leads to.
  *
- * It exists to prove the platform layer is wired: config fetched, session restored or
- * created, entitlements read from the backend. Replace it with your app — the interesting
- * part is `bootstrap()` and what it hands back.
+ * No navigation library: there are four states and one of them is a spinner. Add a router
+ * when you have screens to route between — before that it is a dependency that only makes
+ * this file longer.
  */
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
@@ -29,9 +23,8 @@ const REVENUECAT_KEYS = {
 };
 
 export default function App() {
-  const [result, setResult] = useState<BootstrapResult | null>(null);
-  const [entitlements, setEntitlements] = useState<Entitlements>(noEntitlements());
-  const [error, setError] = useState<string | null>(null);
+  const [booted, setBooted] = useState<BootstrapResult | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,84 +32,90 @@ export default function App() {
     bootstrap({
       apiBaseUrl: API_BASE_URL,
       revenueCatKeys: REVENUECAT_KEYS,
-      signInAnonymouslyOnLaunch: true,
+      // Off, so the login screen is what greets you. Turn it on and the app opens straight
+      // into a guest session instead - both are reasonable; this one makes the choice
+      // visible to the user.
+      signInAnonymouslyOnLaunch: false,
       lifecycle: {
         // Handled here rather than per screen: the server can answer 426 to any call.
-        onUpdateRequired: () => setResult((it) => (it ? { ...it, forceUpdate: true } : it)),
-        onSessionEnded: () => setResult((it) => (it ? { ...it, signedIn: false } : it)),
+        onUpdateRequired: () => setBooted((it) => (it ? { ...it, forceUpdate: true } : it)),
       },
-    }).then(async (booted) => {
-      if (cancelled) {
-        return;
-      }
-      setResult(booted);
-
-      if (booted.signedIn) {
-        try {
-          setEntitlements(await fetchEntitlements());
-        } catch (cause) {
-          // Expected until the backend's billing integration is implemented.
-          setError(cause instanceof Error ? cause.message : String(cause));
-        }
+    }).then((result) => {
+      if (!cancelled) {
+        setBooted(result);
       }
     });
 
+    // The session can end without a screen asking - a refresh token that was revoked, say.
+    // Subscribing means the UI follows it wherever it changes.
+    const unsubscribe = subscribeToSession((session) => setSignedIn(session !== null));
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 
-  if (!result) {
+  const handleSignedIn = useCallback(() => setSignedIn(true), []);
+  const handleSignedOut = useCallback(() => setSignedIn(false), []);
+
+  if (!booted) {
     return (
-      <View style={styles.centred}>
+      <Centred>
         <ActivityIndicator />
-        <StatusBar style="auto" />
-      </View>
+      </Centred>
     );
   }
 
-  if (result.forceUpdate) {
+  if (booted.forceUpdate) {
     const url = remoteConfig().updateUrl;
     return (
-      <View style={styles.centred}>
+      <Centred>
         <Text style={styles.title}>Update required</Text>
         <Text style={styles.body}>This version is no longer supported.</Text>
         {url ? (
-          <Pressable onPress={() => Linking.openURL(url)}>
+          <Pressable onPress={() => Linking.openURL(url)} accessibilityRole="button">
             <Text style={styles.link}>Open the store</Text>
           </Pressable>
         ) : null}
-      </View>
+      </Centred>
     );
   }
 
-  if (result.maintenanceMode) {
+  if (booted.maintenanceMode) {
     return (
-      <View style={styles.centred}>
+      <Centred>
         <Text style={styles.title}>Back shortly</Text>
-        <Text style={styles.body}>{result.maintenanceMessage ?? 'We are doing some work.'}</Text>
-      </View>
+        <Text style={styles.body}>{booted.maintenanceMessage ?? 'We are doing some work.'}</Text>
+      </Centred>
     );
   }
 
   return (
-    <View style={styles.centred}>
-      <Text style={styles.title}>Platform is up</Text>
-      <Text style={styles.body}>API: {API_BASE_URL}</Text>
-      <Text style={styles.body}>
-        Session: {result.signedIn ? (currentSession()?.userId ?? '-') : 'signed out'}
-      </Text>
-      <Text style={styles.body}>Paying: {entitlements.paying ? 'yes' : 'no'}</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+    <View style={styles.root}>
+      {signedIn ? (
+        <HomeScreen onSignedOut={handleSignedOut} />
+      ) : (
+        <LoginScreen onSignedIn={handleSignedIn} />
+      )}
+      <StatusBar style="auto" />
+    </View>
+  );
+}
+
+function Centred({ children }: { readonly children: React.ReactNode }) {
+  return (
+    <View style={[styles.root, styles.centred]}>
+      {children}
       <StatusBar style="auto" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
+  root: { flex: 1, backgroundColor: '#fff' },
+  centred: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
   title: { fontSize: 20, fontWeight: '600' },
   body: { fontSize: 14, opacity: 0.7, textAlign: 'center' },
   link: { fontSize: 15, marginTop: 12, textDecorationLine: 'underline' },
-  error: { fontSize: 12, opacity: 0.6, textAlign: 'center', marginTop: 12 },
 });

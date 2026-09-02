@@ -31,7 +31,8 @@ is what catches the API contract drifting from the backend.
         analytics/       event port with a no-op default
         bootstrap.ts     what happens at launch, in order
       domain/            YOUR APP. Ships empty.
-    App.tsx              a shell that proves the platform is wired
+      screens/           LoginScreen and HomeScreen - plain, meant to be restyled
+    App.tsx              launch, then which of the four states you are in
 
 It mirrors the backend in responsibility, not file-for-file. The client has no tables and
 no SPI, so two server modules collapse: account deletion and export live in `identity`
@@ -71,16 +72,27 @@ or a change of signing key — either would silently strand an anonymous user's 
       backend.
 - [ ] Make a dev build (`npx expo prebuild`, then EAS or local). RevenueCat, Sign in with
       Apple and push all need native code, so Expo Go is not enough.
-- [ ] Implement provider sign-in. `signInWithProvider` posts to the backend, but the
-      backend's Apple and Google verifiers are still TODO — nobody can sign in until those
-      land.
+- [ ] Implement provider sign-in. Guest sign-in works end to end; the Apple and Google
+      buttons are disabled because the backend's token verifiers are still TODO.
 - [ ] Add push registration where it belongs in your flow. `registerForPush()` is written
       but nothing calls it; register on every launch, since tokens rotate.
 - [ ] Swap the no-op analytics recorder for a real one, if you want analytics.
 
+## Screens
+
+`LoginScreen` leads with **Continue as guest**, which works today. Making people create an
+account before they have seen anything is the most reliable way to lose them, and the
+backend can link a real account to an anonymous one later without losing their data.
+
+The Apple and Google buttons are present but disabled, with the reason on screen. A button
+that fails on tap is worse than one that says why.
+
+`App.tsx` has four states — loading, force-update, maintenance, and signed in or out — and
+no router. Add one when you have screens to route between.
+
 ## What it deliberately does not do
 
-- **No navigation, no state library, no design system.** `App.tsx` is a shell to delete.
+- **No navigation, no state library, no design system.** The screens are plain on purpose.
 - **No offline queue or cache.** Requests fail when the network does.
 - **No paywall UI.** The RevenueCat SDK gives you offerings; the screen is yours.
 - **No tests.** The type checker is the only gate today.

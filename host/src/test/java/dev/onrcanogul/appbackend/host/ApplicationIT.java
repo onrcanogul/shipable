@@ -10,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import java.util.Map;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -145,6 +147,65 @@ class ApplicationIT {
     }
 
     @Test
+    @DisplayName("anonymous sign-in issues a session, and the same device gets the same user")
+    void anonymousSignInIsFindOrCreate() {
+        String deviceId = "it-device-" + java.util.UUID.randomUUID();
+
+        Map<String, Object> first = signInAnonymously(deviceId);
+        Map<String, Object> second = signInAnonymously(deviceId);
+
+        assertThat(first.get("accessToken")).asString().isNotBlank();
+        assertThat(first.get("anonymous")).isEqualTo(true);
+        // Find-or-create, not create: a retry must not strand the first account's history.
+        assertThat(second.get("userId")).isEqualTo(first.get("userId"));
+    }
+
+    @Test
+    @DisplayName("the issued token authenticates a protected endpoint")
+    void issuedTokenWorks() {
+        Map<String, Object> session = signInAnonymously("it-device-" + java.util.UUID.randomUUID());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth((String) session.get("accessToken"));
+        ResponseEntity<String> response = restTemplate.exchange(
+                url("/api/v1/billing/entitlements"), HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("\"paying\":false");
+    }
+
+    @Test
+    @DisplayName("refresh rotates the token, and the old one stops working")
+    void refreshRotates() {
+        Map<String, Object> session = signInAnonymously("it-device-" + java.util.UUID.randomUUID());
+        String original = (String) session.get("refreshToken");
+
+        ResponseEntity<Map<String, Object>> refreshed = postJson("/api/v1/auth/refresh",
+                Map.of("refreshToken", original));
+        assertThat(refreshed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(refreshed.getBody()).isNotNull();
+        assertThat(refreshed.getBody().get("refreshToken")).isNotEqualTo(original);
+
+        // Replaying the rotated token must not extend the session.
+        assertThat(postJson("/api/v1/auth/refresh", Map.of("refreshToken", original)).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @DisplayName("an anonymous session cannot delete the account")
+    void anonymousCannotDeleteTheAccount() {
+        Map<String, Object> session = signInAnonymously("it-device-" + java.util.UUID.randomUUID());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth((String) session.get("accessToken"));
+        ResponseEntity<String> response = restTemplate.exchange(
+                url("/api/v1/account/deletion"), HttpMethod.POST, new HttpEntity<>(headers), String.class);
+
+        // requireRegistered: otherwise anyone holding the phone could delete the account.
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
     @DisplayName("every response carries a request id")
     void responsesAreTraceable() {
         assertThat(get("/api/v1/health").getHeaders().getFirst("X-Request-Id")).isNotBlank();
@@ -157,6 +218,22 @@ class ApplicationIT {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("/api/v1/auth/social");
+    }
+
+    private Map<String, Object> signInAnonymously(String deviceId) {
+        ResponseEntity<Map<String, Object>> response =
+                postJson("/api/v1/auth/anonymous", Map.of("deviceId", deviceId));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        return response.getBody();
+    }
+
+    private ResponseEntity<Map<String, Object>> postJson(String path, Map<String, ?> body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return restTemplate.exchange(
+                url(path), HttpMethod.POST, new HttpEntity<>(body, headers),
+                new ParameterizedTypeReference<Map<String, Object>>() { });
     }
 
     private ResponseEntity<String> get(String path) {

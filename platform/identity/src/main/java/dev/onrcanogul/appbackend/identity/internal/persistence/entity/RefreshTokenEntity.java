@@ -37,6 +37,24 @@ public class RefreshTokenEntity extends BaseEntity {
         // for JPA
     }
 
+    /**
+     * @param tokenHash SHA-256 of the token we handed the client. The plaintext is never
+     *                  stored, so a database leak cannot hand out live sessions
+     */
+    public static RefreshTokenEntity issue(UUID userId, String tokenHash, Instant expiresAt) {
+        RefreshTokenEntity token = new RefreshTokenEntity();
+        token.userId = userId;
+        token.tokenHash = tokenHash;
+        token.expiresAt = expiresAt;
+        return token;
+    }
+
+    public void revoke(Instant now) {
+        if (revokedAt == null) {
+            revokedAt = now;
+        }
+    }
+
     public UUID getUserId() {
         return userId;
     }

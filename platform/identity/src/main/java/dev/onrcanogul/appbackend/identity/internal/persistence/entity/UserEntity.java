@@ -46,6 +46,44 @@ public class UserEntity extends BaseEntity {
         // for JPA
     }
 
+    /**
+     * A device-scoped user, created the first time an app is opened.
+     *
+     * <p>Anonymous until they sign in; {@link #promoteTo} then turns this same row into a
+     * real account, which is what makes their data survive signing up.
+     */
+    public static UserEntity anonymous(String deviceId) {
+        UserEntity user = new UserEntity();
+        user.provider = AuthProvider.ANONYMOUS_DEVICE;
+        user.deviceId = deviceId;
+        user.anonymous = true;
+        return user;
+    }
+
+    /** A user created directly from a provider sign-in, with no anonymous history. */
+    public static UserEntity fromProvider(AuthProvider provider, String externalSubject, String email) {
+        UserEntity user = new UserEntity();
+        user.provider = provider;
+        user.externalSubject = externalSubject;
+        user.email = email;
+        user.anonymous = false;
+        return user;
+    }
+
+    /**
+     * Turns an anonymous row into a signed-in one, in place.
+     *
+     * <p>In place on purpose: the id does not change, so everything keyed on it - purchases,
+     * quota history, the user's own data - follows without being moved.
+     */
+    public void promoteTo(AuthProvider provider, String externalSubject, String email) {
+        this.provider = provider;
+        this.externalSubject = externalSubject;
+        this.email = email;
+        this.anonymous = false;
+        this.deviceId = null;
+    }
+
     public AuthProvider getProvider() {
         return provider;
     }

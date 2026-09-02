@@ -90,7 +90,7 @@ done. The integrations are not:
 | Works today | Still a TODO |
 | --- | --- |
 | Request pipeline, errors, validation | Apple/Google token verification |
-| JWT issue/validate, refresh hashing | Sign-in persistence, refresh rotation |
+| Guest sign-in, refresh with rotation, sign-out | Linking a guest account to a real one |
 | Rate limiting and idempotency, in memory **and** on Redis | — |
 | Runtime settings: read, write, validate, refresh | — |
 | Admin API: settings, flags, version gating, info | Admin UI, user management |

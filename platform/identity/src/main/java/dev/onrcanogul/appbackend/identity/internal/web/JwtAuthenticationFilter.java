@@ -4,6 +4,7 @@ import dev.onrcanogul.appbackend.core.api.model.UserId;
 import dev.onrcanogul.appbackend.identity.api.context.CurrentUser;
 import dev.onrcanogul.appbackend.identity.api.context.CurrentUserHolder;
 import dev.onrcanogul.appbackend.identity.api.port.AccessTokenService;
+import dev.onrcanogul.appbackend.identity.api.port.AuthenticationService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,9 +33,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final AccessTokenService accessTokenService;
+    private final AuthenticationService authenticationService;
 
-    public JwtAuthenticationFilter(AccessTokenService accessTokenService) {
+    public JwtAuthenticationFilter(
+            AccessTokenService accessTokenService, AuthenticationService authenticationService) {
         this.accessTokenService = accessTokenService;
+        this.authenticationService = authenticationService;
     }
 
     @Override
@@ -52,11 +56,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
+    /**
+     * Whether the caller is anonymous decides what they may do, so it cannot be assumed.
+     *
+     * <p>TODO: put the flag in the token as a claim. It only changes when an anonymous
+     * account is linked, and issuing a fresh token then is cheaper than a lookup on every
+     * request.
+     */
     private void bind(UserId userId) {
-        // TODO: the anonymous flag belongs in the token as a claim, so this does not need
-        // a database read on every request. Until sign-in is implemented there is nothing
-        // to read, so callers are treated as registered.
-        CurrentUserHolder.set(new CurrentUser(userId, false));
+        boolean anonymous = authenticationService.findById(userId)
+                .map(user -> user.anonymous())
+                .orElse(true);
+        CurrentUserHolder.set(new CurrentUser(userId, anonymous));
     }
 
     private static java.util.Optional<String> extractToken(HttpServletRequest request) {

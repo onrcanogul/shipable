@@ -6,6 +6,8 @@ import dev.onrcanogul.appbackend.identity.api.port.IdentityTokenVerifier;
 import dev.onrcanogul.appbackend.identity.internal.client.AppleIdentityTokenVerifier;
 import dev.onrcanogul.appbackend.identity.internal.client.GoogleIdentityTokenVerifier;
 import dev.onrcanogul.appbackend.identity.internal.service.DefaultAuthenticationService;
+import dev.onrcanogul.appbackend.identity.internal.persistence.repository.RefreshTokenRepository;
+import dev.onrcanogul.appbackend.identity.internal.persistence.repository.UserRepository;
 import dev.onrcanogul.appbackend.identity.internal.service.JwtAccessTokenService;
 import dev.onrcanogul.appbackend.identity.internal.web.AuthController;
 import dev.onrcanogul.appbackend.identity.internal.web.JwtAuthenticationFilter;
@@ -47,8 +49,14 @@ public class IdentityModuleConfiguration {
 
     @Bean
     public AuthenticationService authenticationService(
-            List<IdentityTokenVerifier> verifiers, AccessTokenService accessTokenService) {
-        return new DefaultAuthenticationService(verifiers, accessTokenService);
+            List<IdentityTokenVerifier> verifiers,
+            AccessTokenService accessTokenService,
+            UserRepository users,
+            RefreshTokenRepository refreshTokens,
+            IdentityProperties properties,
+            Clock clock) {
+        return new DefaultAuthenticationService(
+                verifiers, accessTokenService, users, refreshTokens, properties, clock);
     }
 
     /**
@@ -57,9 +65,9 @@ public class IdentityModuleConfiguration {
      */
     @Bean
     public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilter(
-            AccessTokenService accessTokenService) {
-        FilterRegistrationBean<JwtAuthenticationFilter> registration =
-                new FilterRegistrationBean<>(new JwtAuthenticationFilter(accessTokenService));
+            AccessTokenService accessTokenService, AuthenticationService authenticationService) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(
+                new JwtAuthenticationFilter(accessTokenService, authenticationService));
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 40);
         registration.addUrlPatterns("/*");
         return registration;

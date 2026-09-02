@@ -6,6 +6,10 @@ import dev.onrcanogul.appbackend.identity.api.model.AuthProvider;
 import dev.onrcanogul.appbackend.identity.api.port.AccessTokenService;
 import dev.onrcanogul.appbackend.identity.api.port.AuthenticationService;
 import dev.onrcanogul.appbackend.identity.api.port.IdentityTokenVerifier;
+import static org.mockito.Mockito.mock;
+
+import dev.onrcanogul.appbackend.identity.internal.persistence.repository.RefreshTokenRepository;
+import dev.onrcanogul.appbackend.identity.internal.persistence.repository.UserRepository;
 import java.time.Clock;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +20,8 @@ class IdentityModuleContextTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withBean(Clock.class, Clock::systemUTC)
+            .withBean(UserRepository.class, () -> mock(UserRepository.class))
+            .withBean(RefreshTokenRepository.class, () -> mock(RefreshTokenRepository.class))
             .withPropertyValues(
                     "app.identity.jwt.secret=test-secret-that-is-definitely-long-enough-32",
                     "app.identity.jwt.issuer=app-backend-template",

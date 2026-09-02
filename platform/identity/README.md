@@ -56,11 +56,10 @@ Spring wiring: `IdentityModuleConfiguration`.
 
 - **No real token verification yet.** Both verifiers throw. JWKS fetching and caching,
   signature checks and issuer/audience/expiry validation are TODO — see the class javadoc
-  for the exact steps and the traps.
-- **No persistence yet.** `DefaultAuthenticationService` throws; the tables exist and the
-  repositories are written, but nothing writes to them.
-- **No refresh token rotation yet.** The design is documented in the service; the code is
-  not there.
+  for the exact steps and the traps. Until they land, guest sign-in is the only way in.
+- **No provider sign-in yet.** `signInWithProvider` and `linkAnonymousAccount` throw,
+  because both need the token verifiers above. Anonymous sign-in, refresh and sign-out are
+  implemented and covered end to end by `ApplicationIT`.
 - **No e-mail/password sign-in, no OTP.** Providers and anonymous devices only.
 - **No roles or permissions.** There is one kind of user. If you need roles, they belong in
   your `domain` module or in a Spring Security upgrade.
