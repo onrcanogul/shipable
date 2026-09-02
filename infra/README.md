@@ -33,15 +33,21 @@ API is only on loopback, so nothing answers on the domain at all.
 
 TLS is issued and renewed by Caddy with no cron job and no certbot.
 
-## Production, several apps on the machine
+## Production, on a machine that hosts other things
 
-Caddy cannot be shared by two of these stacks — only one process can bind 80 and 443 — so
-the layout changes: one shared stack for Caddy, Postgres and Redis, and one thin stack per
-app. See [`multi-app/`](multi-app/) and
-[`../docs/MULTIPLE-APPS-ON-ONE-SERVER.md`](../docs/MULTIPLE-APPS-ON-ONE-SERVER.md).
+Use [`attached/`](attached/) instead. It starts the API alone and expects the proxy, the
+database and Redis to already exist on the machine — put there by whoever runs the server,
+and shared with whatever else is hosted there.
 
-Nothing about the shared layer is specific to this template: another backend, a Node
-service or a static site can sit behind the same Caddy.
+Caddy cannot be duplicated (only one process can bind 80 and 443), so on such a machine the
+edge belongs to the server, not to this app.
+
+What the app needs from that environment — the network, the four things the proxy must do,
+its own database — is in
+[`../docs/RUNNING-ON-A-SHARED-SERVER.md`](../docs/RUNNING-ON-A-SHARED-SERVER.md). This
+repository deliberately ships no server-level configuration: no site blocks for other
+applications, no shared stack, no backup job. That is a different concern with a different
+lifecycle, and vendoring it into every app clone is how it drifts.
 
 ## What is deliberately not exposed
 
@@ -56,8 +62,7 @@ service or a static site can sit behind the same Caddy.
 | File | Purpose |
 | --- | --- |
 | `docker-compose.yml` | postgres + api; `--profile redis` adds Redis, `--profile standalone` adds Caddy |
-| `multi-app/shared/` | Shared Caddy, Postgres and Redis for a server hosting several things |
-| `multi-app/app/` | One app joining that shared stack |
+| `attached/` | The API alone, for a machine whose proxy and database already exist |
 | `Dockerfile` | Two-stage build; JRE runtime, non-root user, no source in the image |
 | `Caddyfile` | TLS, proxying, security headers, actuator block |
 | `.env.example` | Every variable, with notes on how to generate the secrets |
@@ -73,10 +78,8 @@ Override per deployment with `APP_MEM_LIMIT`, `APP_POSTGRES_MEM_LIMIT` and frien
 
 ## Backups
 
-There are none for the single-app setup. `postgres-data` is a Docker volume, which survives
-`docker compose down` but not `down -v` and not a dead disk.
-
-(The multi-app shared stack ships a `backup.sh` that dumps every database.)
+There are none. `postgres-data` is a Docker volume, which survives `docker compose down`
+but not `down -v` and not a dead disk.
 
 Before this holds anything you would miss:
 

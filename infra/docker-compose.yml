@@ -11,8 +11,8 @@
 # want it either - going straight to http://localhost:8080 beats clicking through a
 # self-signed certificate warning.
 #
-# Running several apps on one server? See infra/multi-app/, where Caddy, Postgres and
-# Redis are a separate shared stack.
+# On a machine that hosts other things too, the proxy and the database belong to the
+# server rather than to this app: use infra/attached/ instead.
 
 name: app-backend
 
@@ -129,8 +129,8 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     # Only started with: docker compose --profile standalone up
-    # Skip it locally (go straight to http://localhost:8080) and on a multi-app server,
-    # where a single shared Caddy fronts every app - see infra/multi-app/.
+    # Skip it locally (go straight to http://localhost:8080), and on a machine that
+    # already has a proxy of its own - see infra/attached/.
     profiles: [standalone]
     mem_limit: ${APP_CADDY_MEM_LIMIT:-128m}
     depends_on:
