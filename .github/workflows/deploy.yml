@@ -30,7 +30,7 @@ jobs:
       # Deliberately re-run rather than trusting the CI run: this is the last gate
       # before production, and the cost is a couple of minutes.
       - name: Build and test
-        working-directory: backend
+        working-directory: server
         run: ./mvnw -B verify
 
       # ---------------------------------------------------------------------
@@ -42,7 +42,7 @@ jobs:
       #   SSH_PRIVATE_KEY     a deploy key, passphrase-free, used only for this
       #   SSH_PORT            optional, defaults to 22
       #
-      # The server needs the repository checked out and infra/.env filled in once,
+      # The server needs the repository checked out and server/infra/.env filled in once,
       # by hand. Secrets are not copied by this workflow on purpose - the fewer
       # places a production secret travels through, the better.
       # ---------------------------------------------------------------------
@@ -63,7 +63,7 @@ jobs:
             cd ~/app-backend
             git fetch --prune origin
             git reset --hard origin/main
-            cd backend/infra
+            cd server/infra
             docker compose --profile standalone up -d --build
             # Old image layers accumulate until the disk fills, which on a small VPS
             # takes weeks and always happens at a bad moment.

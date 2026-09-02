@@ -2,7 +2,7 @@
 
 The React Native half of the app. Expo SDK 57, TypeScript, dev builds.
 
-It covers what [`../backend`](../backend) provides — sessions, subscriptions, remote config, push,
+It covers what [`../server`](../server) provides — sessions, subscriptions, remote config, push,
 account deletion — so a new screen calls one function instead of re-solving token refresh
 and error parsing.
 
@@ -51,7 +51,7 @@ Without this each would start its own refresh and all but one would rotate a tok
 had already replaced — which on a backend that revokes the old token logs the user out.
 
 **Error codes are a shared contract.** `src/platform/core/api/errors.ts` and
-`../backend/platform/core/.../ErrorCodes.java` are a pair. Branch on `code`, never on `message`.
+`../server/platform/core/.../ErrorCodes.java` are a pair. Branch on `code`, never on `message`.
 
 **Entitlements come from our backend, not the RevenueCat SDK.** The SDK knows what the
 store told this device; the backend knows what it verified server-side. The SDK is still

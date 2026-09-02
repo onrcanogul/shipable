@@ -1,4 +1,4 @@
-# backend
+# server
 
 The Spring Boot half. Java 21, Maven multi-module, PostgreSQL. Everything an app needs before it does
 anything interesting is here, already built and domain-agnostic:
@@ -24,7 +24,7 @@ Clone it, write your app in `domain`, and never build this layer again.
 
 ## Quick start
 
-    cd backend/infra && cp .env.example .env
+    cd server/infra && cp .env.example .env
     # set APP_JWT_SECRET: openssl rand -base64 48
     docker compose up --build
 

@@ -8,14 +8,14 @@ domain-agnostic — sign-in, subscriptions, quotas, remote config, push, account
 the unglamorous request-pipeline work underneath. Clone it, write your app in the two empty
 `domain` modules, and never build this layer again.
 
-    backend/      Spring Boot, Java 21, PostgreSQL      → backend/README.md
+    server/       Spring Boot, Java 21, PostgreSQL      → server/README.md
     mobile/       React Native, Expo SDK 57             → mobile/README.md
 
 ## Quick start
 
 Backend first — the app needs something to talk to.
 
-    cd backend/infra
+    cd server/infra
     cp .env.example .env
     # set APP_JWT_SECRET: openssl rand -base64 48
     docker compose up -d --build
