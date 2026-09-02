@@ -48,6 +48,7 @@ stack). Maven comes from the wrapper.
 
 ## Layout
 
+    mobile/       the React Native app (Expo). See mobile/README.md
     platform/     reusable modules; none of them know what your app does
       core/           request pipeline, errors, base entity, rate limit, idempotency
       cache/          Redis (optional): cache, shared rate limiting and idempotency
@@ -64,6 +65,10 @@ stack). Maven comes from the wrapper.
     infra/        docker compose, Caddy, .env.example
     docs/
 
+The mobile app mirrors the backend in responsibility rather than file-for-file, and shares
+its error-code contract: `mobile/src/platform/core/api/errors.ts` and `ErrorCodes.java` are
+a pair.
+
 Each module has its own README covering what it does, what tables it owns, what it exposes,
 and — explicitly — what it does not do.
 
@@ -73,6 +78,7 @@ and — explicitly — what it does not do.
 | --- | --- |
 | [docs/BUILDING-YOUR-APP.md](docs/BUILDING-YOUR-APP.md) | Rename it, write your first feature, ship |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The rules and why they are there |
+| [mobile/README.md](mobile/README.md) | The React Native app |
 | [infra/README.md](infra/README.md) | Running it locally and on a VPS |
 
 ## Honest status

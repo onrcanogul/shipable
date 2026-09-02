@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  backend:
     runs-on: ubuntu-latest
 
     steps:
@@ -38,3 +38,28 @@ jobs:
           path: '**/target/*-reports/*.xml'
           if-no-files-found: ignore
           retention-days: 7
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      # `npm ci` rather than `install`: it fails on a lockfile that does not match
+      # package.json, which is the whole point of running it here.
+      - name: Install
+        run: npm ci
+
+      # The mobile equivalent of `mvnw verify`. There is no test suite yet; the type
+      # checker is what catches the API contract drifting away from the backend.
+      - name: Type check
+        run: npm run typecheck
