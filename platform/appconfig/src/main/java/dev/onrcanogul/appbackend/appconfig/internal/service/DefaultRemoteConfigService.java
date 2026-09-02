@@ -5,65 +5,114 @@ import dev.onrcanogul.appbackend.appconfig.api.model.AppVersion;
 import dev.onrcanogul.appbackend.appconfig.api.model.PlatformConfig;
 import dev.onrcanogul.appbackend.appconfig.api.model.RemoteConfig;
 import dev.onrcanogul.appbackend.appconfig.api.port.FeatureFlags;
-import dev.onrcanogul.appbackend.appconfig.api.port.RemoteConfigService;
+import dev.onrcanogul.appbackend.appconfig.internal.persistence.entity.PlatformConfigEntity;
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.repository.PlatformConfigRepository;
 import dev.onrcanogul.appbackend.core.api.context.ClientPlatform;
+import dev.onrcanogul.appbackend.core.api.port.RuntimeSettings;
+import dev.onrcanogul.appbackend.core.api.port.SettingKeys;
+import java.util.EnumMap;
 import java.util.Map;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 
 /**
- * Skeleton implementation of {@link RemoteConfigService}.
+ * Version gating and maintenance state, from the database.
  *
- * <p>The fallback path is real and deliberately permissive: with no row in the database,
- * every client is supported and nothing is in maintenance. A config lookup that fails
- * closed would take the whole app down the first time someone dropped the table — the
- * opposite of what a safety valve is for.
+ * <p><b>Held in memory.</b> {@code MinimumVersionFilter} asks on every request, so a query
+ * per call would add one to every request in the application and tie the API's availability
+ * to this table. There are at most a handful of rows; they are kept in a map and swapped
+ * atomically.
+ *
+ * <p><b>Permissive on failure and when empty.</b> With no row, no override and no database,
+ * every client is supported and nothing is in maintenance. This is the one place in the
+ * platform that deliberately fails <i>open</i>: a version gate that fails closed takes the
+ * entire app down the first time a query hiccups, which is the opposite of what a safety
+ * valve is for.
  */
-public class DefaultRemoteConfigService implements RemoteConfigService {
+public class DefaultRemoteConfigService implements dev.onrcanogul.appbackend.appconfig.api.port.RemoteConfigService {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultRemoteConfigService.class);
 
     private final PlatformConfigRepository repository;
     private final FeatureFlags featureFlags;
+    private final RuntimeSettings settings;
     private final AppConfigProperties properties;
 
+    private volatile Map<ClientPlatform, PlatformConfig> snapshot = new EnumMap<>(ClientPlatform.class);
+
     public DefaultRemoteConfigService(
-            PlatformConfigRepository repository, FeatureFlags featureFlags, AppConfigProperties properties) {
+            PlatformConfigRepository repository,
+            FeatureFlags featureFlags,
+            RuntimeSettings settings,
+            AppConfigProperties properties) {
         this.repository = repository;
         this.featureFlags = featureFlags;
+        this.settings = settings;
         this.properties = properties;
     }
 
     @Override
     public RemoteConfig configFor(ClientPlatform platform) {
-        // TODO: repository.findByPlatform(platform), map to RemoteConfig, and cache it -
-        // this is called on every cold start, so it should not be a database round trip
-        // per launch.
-        return fallbackFor(platform);
+        return new RemoteConfig(
+                platform,
+                platformConfig(platform),
+                settings.getBoolean(SettingKeys.MAINTENANCE_MODE, false),
+                emptyToNull(settings.getString(SettingKeys.MAINTENANCE_MESSAGE, "")),
+                featureFlags.clientFacingFlags());
     }
 
     @Override
     public boolean isSupported(ClientPlatform platform, AppVersion version) {
+        if (!settings.getBoolean(SettingKeys.VERSION_GATE_ENABLED, properties.versionGateEnabled())) {
+            return true;
+        }
         if (version == null) {
             // No version header: an older client, or one of our own tools. Locking those
             // out would be a self-inflicted outage.
             return true;
         }
-        return !version.isOlderThan(configFor(platform).platformConfig().minimumSupportedVersion());
+        return !version.isOlderThan(platformConfig(platform).minimumSupportedVersion());
     }
 
-    /** Used until the table is populated, and whenever a platform has no row. */
-    private RemoteConfig fallbackFor(ClientPlatform platform) {
-        return new RemoteConfig(
-                platform,
-                new PlatformConfig(
-                        AppVersion.of(properties.defaultMinimumVersion()),
-                        AppVersion.of(properties.defaultMinimumVersion()),
-                        null),
-                false,
-                null,
-                Map.of());
+    /**
+     * Reloads the platform rows.
+     *
+     * <p>On failure the previous snapshot stays. Losing the gate for a refresh interval is
+     * far better than rejecting every client because one query failed.
+     */
+    @Scheduled(fixedDelayString = "${app.config.refresh-interval:PT60S}", initialDelay = 0)
+    public void reload() {
+        try {
+            Map<ClientPlatform, PlatformConfig> reloaded = new EnumMap<>(ClientPlatform.class);
+            for (PlatformConfigEntity entity : repository.findAll()) {
+                AppVersion minimum = AppVersion.parseOrNull(entity.getMinimumSupportedVersion());
+                AppVersion latest = AppVersion.parseOrNull(entity.getLatestVersion());
+                if (minimum == null) {
+                    log.warn("platform_config row for {} has an unparseable minimum version '{}', ignoring it",
+                            entity.getPlatform(), entity.getMinimumSupportedVersion());
+                    continue;
+                }
+                reloaded.put(entity.getPlatform(),
+                        new PlatformConfig(minimum, latest == null ? minimum : latest, entity.getUpdateUrl()));
+            }
+            snapshot = reloaded;
+        } catch (RuntimeException e) {
+            log.warn("Could not refresh platform config, keeping the previous snapshot", e);
+        }
     }
 
-    /** Exposed so the controller can report both the config and the gate decision. */
-    public FeatureFlags featureFlags() {
-        return featureFlags;
+    private PlatformConfig platformConfig(ClientPlatform platform) {
+        return Optional.ofNullable(snapshot.get(platform)).orElseGet(this::permissiveFallback);
+    }
+
+    private PlatformConfig permissiveFallback() {
+        AppVersion minimum = AppVersion.of(properties.defaultMinimumVersion());
+        return new PlatformConfig(minimum, minimum, null);
+    }
+
+    private static String emptyToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }

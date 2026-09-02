@@ -1,0 +1,71 @@
+# Production profile: SPRING_PROFILES_ACTIVE=prod
+#
+# Everything here is either a tighter default or something switched off. There is no
+# secret in this file - all of them come from the environment, and the ones without a
+# default will stop the application at startup rather than run half-configured.
+
+spring:
+  jpa:
+    show-sql: false
+
+  flyway:
+    # `flyway clean` drops every schema. It exists for development; in production it is a
+    # command that deletes the database, so it is disabled outright.
+    clean-disabled: true
+
+  datasource:
+    hikari:
+      maximum-pool-size: ${APP_DB_POOL_SIZE:20}
+      # Fail fast rather than piling up threads waiting on an exhausted pool.
+      connection-timeout: 5000
+      leak-detection-threshold: 30000
+
+server:
+  error:
+    # Nothing internal in a response body. Exception messages have a habit of containing
+    # table names, file paths and occasionally credentials.
+    include-stacktrace: never
+    include-message: never
+  # Behind Caddy, so the client address arrives in X-Forwarded-For.
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+app:
+  cache:
+    # Expected on in production: in-memory rate limiting stops being correct the moment
+    # you run more than one instance.
+    enabled: ${APP_CACHE_ENABLED:true}
+
+  core:
+    rate-limit:
+      permits: ${APP_RATE_LIMIT_PERMITS:120}
+      window: ${APP_RATE_LIMIT_WINDOW:1m}
+
+  admin:
+    # Off unless you deliberately enable it, and then behind an IP allowlist. This API
+    # can lock out every client in the world with one request.
+    enabled: ${APP_ADMIN_ENABLED:false}
+    allowed-ips: ${APP_ADMIN_ALLOWED_IPS:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Actuator can report configuration, environment variables and heap dumps. Caddy
+        # also 404s /actuator at the edge; this is the second lock.
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  # No API documentation in production. It is a map of every endpoint and every field.
+  api-docs:
+    enabled: ${APP_OPENAPI_ENABLED:false}
+  swagger-ui:
+    enabled: ${APP_OPENAPI_ENABLED:false}
+
+logging:
+  level:
+    dev.onrcanogul.appbackend: ${APP_LOG_LEVEL:INFO}
+    org.springframework: WARN

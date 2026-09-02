@@ -32,6 +32,21 @@ public class FeatureFlagEntity extends BaseEntity {
         // for JPA
     }
 
+    /** A new flag starts off and server-only: the safe state for something unfinished. */
+    public static FeatureFlagEntity create(String flagKey) {
+        FeatureFlagEntity flag = new FeatureFlagEntity();
+        flag.flagKey = flagKey;
+        flag.enabled = false;
+        flag.exposedToClient = false;
+        return flag;
+    }
+
+    public void update(boolean enabled, boolean exposedToClient, String description) {
+        this.enabled = enabled;
+        this.exposedToClient = exposedToClient;
+        this.description = description;
+    }
+
     public String getFlagKey() {
         return flagKey;
     }

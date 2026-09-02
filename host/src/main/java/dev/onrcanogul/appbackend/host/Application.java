@@ -1,8 +1,10 @@
 package dev.onrcanogul.appbackend.host;
 
 import dev.onrcanogul.appbackend.analytics.AnalyticsModuleConfiguration;
+import dev.onrcanogul.appbackend.admin.AdminModuleConfiguration;
 import dev.onrcanogul.appbackend.appconfig.AppConfigModuleConfiguration;
 import dev.onrcanogul.appbackend.billing.BillingModuleConfiguration;
+import dev.onrcanogul.appbackend.cache.CacheModuleConfiguration;
 import dev.onrcanogul.appbackend.core.CoreModuleConfiguration;
 import dev.onrcanogul.appbackend.domain.DomainModuleConfiguration;
 import dev.onrcanogul.appbackend.identity.IdentityModuleConfiguration;
@@ -29,6 +31,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @Import({
         CoreModuleConfiguration.class,
+        CacheModuleConfiguration.class,
         IdentityModuleConfiguration.class,
         BillingModuleConfiguration.class,
         QuotaModuleConfiguration.class,
@@ -36,6 +39,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         AnalyticsModuleConfiguration.class,
         AppConfigModuleConfiguration.class,
         PrivacyModuleConfiguration.class,
+        AdminModuleConfiguration.class,
         DomainModuleConfiguration.class,
 })
 public class Application {

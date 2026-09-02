@@ -8,6 +8,11 @@ spring:
   application:
     name: app-backend
 
+  profiles:
+    # dev and prod only. Set SPRING_PROFILES_ACTIVE; dev is the default so a fresh clone
+    # runs with readable logging and the admin API available.
+    default: dev
+
   datasource:
     url: ${APP_DB_URL:jdbc:postgresql://localhost:5432/appdb}
     username: ${APP_DB_USERNAME:app}
@@ -39,6 +44,13 @@ spring:
       - classpath:db/migration/appconfig
       - classpath:db/migration/privacy
       - classpath:db/migration/domain
+
+  data:
+    redis:
+      host: ${APP_REDIS_HOST:localhost}
+      port: ${APP_REDIS_PORT:6379}
+      password: ${APP_REDIS_PASSWORD:}
+      timeout: ${APP_REDIS_TIMEOUT:2s}
 
   jackson:
     default-property-inclusion: non_null
@@ -82,9 +94,32 @@ app:
       # Short: a paywall check must never hang on a third party.
       request-timeout: ${APP_REVENUECAT_TIMEOUT:5s}
 
+  cache:
+    # Off by default, so a fresh clone runs with no Redis container. Turn it on before
+    # you run a second instance: in-memory rate limiting means three replicas give a
+    # caller three times the limit.
+    enabled: ${APP_CACHE_ENABLED:false}
+    # Namespaces every key, so one Redis can serve dev and prod without them reading
+    # each other's entries.
+    key-prefix: ${APP_CACHE_KEY_PREFIX:app}
+    default-ttl: ${APP_CACHE_DEFAULT_TTL:10m}
+
   config:
     default-minimum-version: ${APP_MIN_VERSION:0.0.0}
     version-gate-enabled: ${APP_VERSION_GATE_ENABLED:true}
+    # How quickly a change made through the admin API reaches the other instances.
+    refresh-interval: ${APP_CONFIG_REFRESH_INTERVAL:PT60S}
+    settings-refresh-interval: ${APP_SETTINGS_REFRESH_INTERVAL:PT30S}
+
+  admin:
+    # The operator API can change rate limits, force every client to update and enable
+    # maintenance mode. Off unless you need it; when on, the app refuses to start
+    # without a key of at least 32 characters.
+    enabled: ${APP_ADMIN_ENABLED:false}
+    api-key: ${APP_ADMIN_API_KEY:}
+    # Optional second lock. Empty means "any address with the key". Only meaningful
+    # behind a proxy that sets X-Forwarded-For, which Caddy does.
+    allowed-ips: ${APP_ADMIN_ALLOWED_IPS:}
 
   privacy:
     deletion-grace-period: ${APP_DELETION_GRACE_PERIOD:7d}

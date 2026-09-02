@@ -24,6 +24,18 @@
 	@actuator path /actuator/*
 	respond @actuator 404
 
+	# The admin API can change rate limits, force every client to update and enable
+	# maintenance mode. It is blocked at the edge by default, so reaching it means
+	# an SSH tunnel:
+	#
+	#   ssh -L 8080:localhost:8080 user@server
+	#   curl -H "X-Admin-Key: $KEY" http://localhost:8080/api/admin/v1/settings
+	#
+	# To expose it instead, delete these two lines and set APP_ADMIN_ALLOWED_IPS -
+	# a leaked key should not be enough on its own.
+	@admin path /api/admin/*
+	respond @admin 404
+
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"

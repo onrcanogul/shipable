@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.onrcanogul.appbackend.core.api.port.IdempotencyStore;
 import dev.onrcanogul.appbackend.core.api.port.RateLimitPolicy;
 import dev.onrcanogul.appbackend.core.api.port.RateLimiter;
+import dev.onrcanogul.appbackend.core.api.port.RuntimeSettings;
 import dev.onrcanogul.appbackend.core.api.web.ProblemResponseWriter;
-import dev.onrcanogul.appbackend.core.internal.support.InMemoryIdempotencyStore;
-import dev.onrcanogul.appbackend.core.internal.support.InMemoryRateLimiter;
+import dev.onrcanogul.appbackend.core.api.support.InMemoryIdempotencyStore;
+import dev.onrcanogul.appbackend.core.api.support.InMemoryRateLimiter;
+import dev.onrcanogul.appbackend.core.api.support.PropertiesRuntimeSettings;
 import dev.onrcanogul.appbackend.core.internal.web.GlobalExceptionHandler;
 import dev.onrcanogul.appbackend.core.internal.web.IdempotencyFilter;
 import dev.onrcanogul.appbackend.core.internal.web.RateLimitFilter;
@@ -49,15 +51,34 @@ public class CoreModuleConfiguration {
         return Clock.systemUTC();
     }
 
+    /**
+     * Overrides for settings that can change without a redeploy.
+     *
+     * <p>The fallback resolves nothing, so every caller gets its boot default. When
+     * {@code appconfig} is present it publishes a database-backed implementation and
+     * this one steps aside.
+     */
     @Bean
-    @ConditionalOnMissingBean(RateLimiter.class)
-    public InMemoryRateLimiter rateLimiter(Clock clock) {
+    @ConditionalOnMissingBean(RuntimeSettings.class)
+    public RuntimeSettings runtimeSettings() {
+        return new PropertiesRuntimeSettings();
+    }
+
+    /**
+     * Always registered, even when Redis is enabled.
+     *
+     * <p>With Redis on, {@code platform/cache} publishes {@code @Primary} versions that
+     * take over, and wraps these as the fallback for when Redis is unreachable. Keeping
+     * them as beans also keeps them covered by the eviction job below - a fallback that
+     * nobody cleans up is a memory leak waiting for an outage.
+     */
+    @Bean
+    public InMemoryRateLimiter inMemoryRateLimiter(Clock clock) {
         return new InMemoryRateLimiter(clock);
     }
 
     @Bean
-    @ConditionalOnMissingBean(IdempotencyStore.class)
-    public InMemoryIdempotencyStore idempotencyStore(Clock clock) {
+    public InMemoryIdempotencyStore inMemoryIdempotencyStore(Clock clock) {
         return new InMemoryIdempotencyStore(clock);
     }
 
@@ -82,10 +103,13 @@ public class CoreModuleConfiguration {
 
     @Bean
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilter(
-            RateLimiter rateLimiter, CoreProperties properties, ProblemResponseWriter problemWriter) {
-        RateLimitPolicy policy = new RateLimitPolicy(
+            RateLimiter rateLimiter,
+            CoreProperties properties,
+            RuntimeSettings settings,
+            ProblemResponseWriter problemWriter) {
+        RateLimitPolicy bootDefault = new RateLimitPolicy(
                 properties.rateLimit().permits(), properties.rateLimit().window());
-        return register(new RateLimitFilter(rateLimiter, policy, problemWriter),
+        return register(new RateLimitFilter(rateLimiter, bootDefault, settings, problemWriter),
                 Ordered.HIGHEST_PRECEDENCE + 20);
     }
 
@@ -98,6 +122,7 @@ public class CoreModuleConfiguration {
     /**
      * Housekeeping for the in-memory stores. Without it both maps grow one entry per
      * distinct key forever — a slow leak an attacker gets to choose the keys for.
+     *
      */
     @Bean
     public InMemoryStoreEviction inMemoryStoreEviction(

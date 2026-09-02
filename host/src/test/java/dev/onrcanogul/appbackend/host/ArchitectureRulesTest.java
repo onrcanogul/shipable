@@ -31,7 +31,7 @@ class ArchitectureRulesTest {
     @DisplayName("platform modules never depend on the domain module")
     void platformDoesNotDependOnDomain() {
         noClasses()
-                .that().resideInAPackage(BASE + ".(core|identity|billing|quota|notifications|analytics|appconfig|privacy)..")
+                .that().resideInAPackage(BASE + ".(core|cache|identity|billing|quota|notifications|analytics|appconfig|privacy|admin)..")
                 .should().dependOnClassesThat().resideInAPackage(BASE + ".domain..")
                 .because("the platform must stay reusable: you delete your app and it still stands")
                 .check(classes);
@@ -44,6 +44,7 @@ class ArchitectureRulesTest {
                 .that().resideInAPackage(BASE + ".core..")
                 .should().dependOnClassesThat()
                 .resideInAnyPackage(
+                        BASE + ".cache..",
                         BASE + ".identity..",
                         BASE + ".billing..",
                         BASE + ".quota..",
@@ -51,6 +52,7 @@ class ArchitectureRulesTest {
                         BASE + ".analytics..",
                         BASE + ".appconfig..",
                         BASE + ".privacy..",
+                        BASE + ".admin..",
                         BASE + ".domain..",
                         BASE + ".host..")
                 .because("core is the floor; everything stands on it and it stands on nothing")
@@ -61,8 +63,8 @@ class ArchitectureRulesTest {
     @DisplayName("a module's internal package is reachable only from that module")
     void internalPackagesAreClosed() {
         for (String module : new String[] {
-                "core", "identity", "billing", "quota", "notifications", "analytics", "appconfig", "privacy",
-                "domain"}) {
+                "core", "cache", "identity", "billing", "quota", "notifications", "analytics", "appconfig",
+                "privacy", "admin", "domain"}) {
             noClasses()
                     .that().resideOutsideOfPackage(BASE + "." + module + "..")
                     .should().dependOnClassesThat().resideInAPackage(BASE + "." + module + ".internal..")
@@ -78,6 +80,30 @@ class ArchitectureRulesTest {
                 .that().resideOutsideOfPackage(BASE + ".host..")
                 .should().dependOnClassesThat().resideInAPackage(BASE + ".host..")
                 .because("the host only wires modules together; a module needing it would be a cycle")
+                .check(classes);
+    }
+
+    @Test
+    @DisplayName("no module depends on the admin module")
+    void adminIsALeaf() {
+        noClasses()
+                .that().resideOutsideOfPackage(BASE + ".admin..")
+                // The host imports every module's configuration by name; that is the wiring,
+                // not a dependency. Every other module must be able to compile without admin.
+                .and().resideOutsideOfPackage(BASE + ".host..")
+                .should().dependOnClassesThat().resideInAPackage(BASE + ".admin..")
+                .because("the admin API must be deletable: it is the most dangerous surface here, "
+                        + "and nothing should stop you removing it")
+                .check(classes);
+    }
+
+    @Test
+    @DisplayName("Redis is confined to the cache module")
+    void onlyCacheKnowsAboutRedis() {
+        noClasses()
+                .that().resideOutsideOfPackage(BASE + ".cache..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework.data.redis..")
+                .because("Redis is optional; a module that imported it directly would make it mandatory")
                 .check(classes);
     }
 

@@ -1,4 +1,4 @@
-package dev.onrcanogul.appbackend.core.internal.support;
+package dev.onrcanogul.appbackend.core.api.support;
 
 import dev.onrcanogul.appbackend.core.api.port.IdempotencyStore;
 import java.time.Clock;

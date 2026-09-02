@@ -26,6 +26,29 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Only started with: docker compose --profile redis up
+    # A fresh clone runs without it; turn it on together with APP_CACHE_ENABLED=true.
+    profiles: [redis]
+    # No persistence configured. Everything in here - rate limit counters, cached
+    # values, idempotency keys - is reconstructible, so losing it on restart costs
+    # nothing. maxmemory-policy makes Redis evict rather than refuse writes when it
+    # fills, which for a cache is what you want.
+    command: >
+      redis-server
+      --save ''
+      --appendonly no
+      --maxmemory ${APP_REDIS_MAXMEMORY:-256mb}
+      --maxmemory-policy allkeys-lru
+    # No port published: reachable from the api container and nowhere else.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build:
       context: ..
@@ -37,6 +60,7 @@ services:
         # runs at boot and fails the whole application if the database is not there yet.
         condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       APP_DB_URL: ${APP_DB_URL}
       APP_DB_USERNAME: ${APP_DB_USERNAME}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
@@ -53,15 +77,29 @@ services:
       APP_REVENUECAT_TIMEOUT: ${APP_REVENUECAT_TIMEOUT}
       APP_RATE_LIMIT_PERMITS: ${APP_RATE_LIMIT_PERMITS}
       APP_RATE_LIMIT_WINDOW: ${APP_RATE_LIMIT_WINDOW}
+      APP_CACHE_ENABLED: ${APP_CACHE_ENABLED}
+      APP_CACHE_KEY_PREFIX: ${APP_CACHE_KEY_PREFIX}
+      APP_CACHE_DEFAULT_TTL: ${APP_CACHE_DEFAULT_TTL}
+      APP_REDIS_HOST: ${APP_REDIS_HOST}
+      APP_REDIS_PORT: ${APP_REDIS_PORT}
+      APP_REDIS_PASSWORD: ${APP_REDIS_PASSWORD}
+      APP_REDIS_TIMEOUT: ${APP_REDIS_TIMEOUT}
+      APP_ADMIN_ENABLED: ${APP_ADMIN_ENABLED}
+      APP_ADMIN_API_KEY: ${APP_ADMIN_API_KEY}
+      APP_ADMIN_ALLOWED_IPS: ${APP_ADMIN_ALLOWED_IPS}
+      APP_CONFIG_REFRESH_INTERVAL: ${APP_CONFIG_REFRESH_INTERVAL}
+      APP_SETTINGS_REFRESH_INTERVAL: ${APP_SETTINGS_REFRESH_INTERVAL}
       APP_MIN_VERSION: ${APP_MIN_VERSION}
       APP_VERSION_GATE_ENABLED: ${APP_VERSION_GATE_ENABLED}
       APP_DELETION_GRACE_PERIOD: ${APP_DELETION_GRACE_PERIOD}
       APP_PORT: 8080
       APP_LOG_LEVEL: ${APP_LOG_LEVEL}
-    # Also unpublished: Caddy is the only way in, so TLS cannot be bypassed by
-    # hitting the port directly.
-    expose:
-      - "8080"
+    # Bound to loopback only. Caddy is still the only route from the internet, so
+    # TLS cannot be bypassed - but the port is reachable on the server itself,
+    # which is what makes an SSH tunnel to the admin API possible:
+    #   ssh -L 8080:localhost:8080 user@server
+    ports:
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
       interval: 15s

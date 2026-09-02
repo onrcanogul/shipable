@@ -42,6 +42,21 @@ public class PlatformConfigEntity extends BaseEntity {
         // for JPA
     }
 
+    public static PlatformConfigEntity create(ClientPlatform platform) {
+        PlatformConfigEntity config = new PlatformConfigEntity();
+        config.platform = platform;
+        config.minimumSupportedVersion = "0.0.0";
+        config.latestVersion = "0.0.0";
+        config.maintenanceMode = false;
+        return config;
+    }
+
+    public void updateVersions(String minimumSupportedVersion, String latestVersion, String updateUrl) {
+        this.minimumSupportedVersion = minimumSupportedVersion;
+        this.latestVersion = latestVersion;
+        this.updateUrl = updateUrl;
+    }
+
     public ClientPlatform getPlatform() {
         return platform;
     }

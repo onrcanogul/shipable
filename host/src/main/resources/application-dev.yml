@@ -1,0 +1,57 @@
+# Development profile: SPRING_PROFILES_ACTIVE=dev
+#
+# The difference from prod is not "less strict" but "more visible". Nothing here weakens a
+# security check - the admin key minimum, the JWT secret minimum and the webhook secret all
+# still apply. What changes is how much the application tells you while you work.
+
+spring:
+  jpa:
+    show-sql: ${APP_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    # Lets you drop the database and start over without hand-editing the history table.
+    clean-disabled: false
+
+server:
+  error:
+    # Stack traces in the response body: useful at a terminal, never anywhere else. The
+    # GlobalExceptionHandler still owns the body shape; this only adds detail in dev.
+    include-stacktrace: on_param
+    include-message: always
+
+app:
+  core:
+    rate-limit:
+      # Loose enough that hammering refresh while building a screen does not lock you out.
+      permits: ${APP_RATE_LIMIT_PERMITS:1000}
+      window: ${APP_RATE_LIMIT_WINDOW:1m}
+
+  config:
+    # Faster feedback when changing a setting from the admin API.
+    refresh-interval: ${APP_CONFIG_REFRESH_INTERVAL:PT10S}
+    settings-refresh-interval: ${APP_SETTINGS_REFRESH_INTERVAL:PT5S}
+
+  admin:
+    # On in dev so you can actually use it while developing. Still needs a real key.
+    enabled: ${APP_ADMIN_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,configprops
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    dev.onrcanogul.appbackend: ${APP_LOG_LEVEL:DEBUG}
+    org.springframework.web: INFO

@@ -17,6 +17,7 @@
 
   <modules>
     <module>core</module>
+    <module>cache</module>
     <module>identity</module>
     <module>billing</module>
     <module>quota</module>
@@ -24,6 +25,7 @@
     <module>analytics</module>
     <module>appconfig</module>
     <module>privacy</module>
+    <module>admin</module>
   </modules>
 
   <build>

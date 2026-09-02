@@ -11,6 +11,7 @@ again.
       pom.xml            parent: versions, plugins, module list
       platform/          reusable modules; none of them know what your app does
         core/            request pipeline, errors, base entity, rate limit, idempotency
+        cache/           Redis, optional: cache, shared rate limiting, shared idempotency
         identity/        Apple/Google sign-in, anonymous devices, our own JWT sessions
         billing/         RevenueCat entitlements and webhooks
         quota/           entitlement-to-limit mapping and the usage ledger
@@ -18,6 +19,7 @@ again.
         analytics/       product event port
         appconfig/       version gating, maintenance mode, feature flags
         privacy/         account deletion and data export
+        admin/           operator API under /api/admin/v1
       domain/            YOUR APP. Ships empty.
       host/              the Spring Boot application; wires everything under /api/v1
       infra/             docker compose, Caddyfile, .env.example
@@ -96,6 +98,7 @@ someone drops a table, which is the opposite of a safety valve.
 | +10 | `RequestContextFilter` | core | Request id, platform, version, IP; MDC |
 | +20 | `RateLimitFilter` | core | Per-IP flood control, before anything costs money |
 | +30 | `IdempotencyFilter` | core | `Idempotency-Key` on state-changing requests |
+| +15 | `AdminAuthenticationFilter` | admin | Key and IP check on `/api/admin/**` |
 | +35 | `MinimumVersionFilter` | appconfig | 426 for clients below the minimum |
 | +40 | `JwtAuthenticationFilter` | identity | Bind the caller if a valid token is present |
 
@@ -110,10 +113,12 @@ because someone forgot to add it to a path list.
       ↑        ↑
       |        ├── notifications
       |        └── privacy
-      └── appconfig, analytics
+      ├── cache
+      ├── analytics
+      └── appconfig ← admin
 
-    domain → every platform module
-    host   → domain + privacy (and everything transitively)
+    domain → every platform module except cache and admin
+    host   → domain, privacy, cache, admin (and everything transitively)
 
 No cycles. `core` depends on nothing. Nothing depends on `host`.
 
@@ -143,6 +148,38 @@ than the constraint, and deletion goes through `UserDataContributor` rather than
 
 `ApplicationIT` skips when Docker is not running, so `./mvnw verify` stays green on a
 machine without it. CI has Docker and runs it for real.
+
+## Runtime settings
+
+Some settings can be changed while the application runs, without a redeploy:
+
+- `application.yml` supplies the value the app boots with.
+- An override stored in `appconfig.app_setting` wins over it.
+- `core` reads through the `RuntimeSettings` port and knows nothing about where the
+  override came from. `appconfig` persists it. `admin` writes it. None of the three depends
+  on the next.
+
+Overrides are held in memory and refreshed on a short interval, because
+`RateLimitFilter` reads on every request and a query there would tie the API's availability
+to the settings table. A change applies at once on the instance that served the admin
+request and within one refresh interval elsewhere.
+
+Only keys declared in a `SettingCatalog` can be written, and values are validated against
+the declared type. Without that, the table fills with typos — each one a setting somebody
+believes they changed.
+
+## Environments
+
+Two: `dev` and `prod`, selected with `SPRING_PROFILES_ACTIVE`. Each is a separate
+deployment with its own database and its own Redis, so their settings are separated by
+construction rather than by a column.
+
+`dev` is not "less strict" — every security check still applies, including the minimum
+lengths for the JWT secret and the admin key. What differs is visibility: readable SQL,
+Swagger UI, looser rate limits, faster settings refresh, the admin API on.
+
+`prod` tightens the pool, turns off API docs, narrows actuator, disables `flyway clean`,
+and leaves the admin API off unless you deliberately enable it.
 
 ## What this template does not decide for you
 

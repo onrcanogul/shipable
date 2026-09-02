@@ -11,6 +11,10 @@ anything interesting is here, already built and domain-agnostic:
 - **Push and e-mail** — device registry and sender ports, no vendor chosen yet.
 - **Remote config** — minimum supported version, force update, maintenance mode, feature
   flags.
+- **An admin API** — change rate limits, flip feature flags, raise the minimum version and
+  enable maintenance at runtime, without a redeploy.
+- **Redis** — optional; turn it on and rate limiting, idempotency and caching become shared
+  across instances.
 - **Account deletion and data export** — the two compliance obligations the app stores
   actually check.
 - **The unglamorous parts** — one error shape, request ids in every log line, validation,
@@ -24,6 +28,10 @@ Clone it, write your app in `domain`, and never build this layer again.
     cd infra && cp .env.example .env
     # set APP_JWT_SECRET: openssl rand -base64 48
     docker compose up --build
+
+    # with Redis:
+    # APP_CACHE_ENABLED=true in .env, then
+    docker compose --profile redis up --build
 
 - API — https://localhost/api/v1/health
 - Swagger UI — https://localhost/swagger-ui.html
@@ -42,6 +50,7 @@ stack). Maven comes from the wrapper.
 
     platform/     reusable modules; none of them know what your app does
       core/           request pipeline, errors, base entity, rate limit, idempotency
+      cache/          Redis (optional): cache, shared rate limiting and idempotency
       identity/       sign-in and sessions
       billing/        RevenueCat
       quota/          limits and usage
@@ -49,6 +58,7 @@ stack). Maven comes from the wrapper.
       analytics/      event port
       appconfig/      version gating, maintenance, feature flags
       privacy/        account deletion and data export
+      admin/          operator API under /api/admin/v1
     domain/       YOUR APP. Ships empty.
     host/         the Spring Boot application
     infra/        docker compose, Caddy, .env.example
@@ -75,12 +85,14 @@ done. The integrations are not:
 | --- | --- |
 | Request pipeline, errors, validation | Apple/Google token verification |
 | JWT issue/validate, refresh hashing | Sign-in persistence, refresh rotation |
-| Rate limiting, idempotency (in memory) | Redis/JDBC backing for both |
+| Rate limiting and idempotency, in memory **and** on Redis | — |
+| Runtime settings: read, write, validate, refresh | — |
+| Admin API: settings, flags, version gating, info | Admin UI, user management |
+| Feature flags and version gating, read from the database | Percentage rollouts |
 | Webhook authentication, 202-then-process | RevenueCat API calls and event processing |
 | Quota wiring, entitlement lookup | Rolling-window accounting, ledger writes |
 | Data export fan-out | Deletion execution and its sweep job |
-| Version gate, feature flag ports | Reading either from the database |
-| Migrations, Docker, Caddy, CI/CD | Push/e-mail providers, backups |
+| Migrations, Docker, Caddy, dev/prod profiles, CI/CD | Push/e-mail providers, backups |
 
 Every TODO sits in the code with notes on how to do it and which mistakes to avoid.
 `docs/BUILDING-YOUR-APP.md` has the full checklist.

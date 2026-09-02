@@ -42,20 +42,17 @@ public class MinimumVersionFilter extends OncePerRequestFilter {
 
     private final RemoteConfigService remoteConfigService;
     private final ProblemResponseWriter problemWriter;
-    private final boolean enabled;
 
     public MinimumVersionFilter(
-            RemoteConfigService remoteConfigService, ProblemResponseWriter problemWriter, boolean enabled) {
+            RemoteConfigService remoteConfigService, ProblemResponseWriter problemWriter) {
         this.remoteConfigService = remoteConfigService;
         this.problemWriter = problemWriter;
-        this.enabled = enabled;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        if (!enabled) {
-            return true;
-        }
+        // Whether the gate is on at all is decided inside isSupported, from RuntimeSettings,
+        // so it can be switched off without a redeploy.
         String path = request.getRequestURI();
         return BYPASS_PREFIXES.stream().anyMatch(path::startsWith);
     }
