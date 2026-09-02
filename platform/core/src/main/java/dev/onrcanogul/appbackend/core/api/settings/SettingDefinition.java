@@ -1,4 +1,4 @@
-package dev.onrcanogul.appbackend.appconfig.api.model;
+package dev.onrcanogul.appbackend.core.api.settings;
 
 /**
  * A setting the system knows about: its key, type, default and what it does.

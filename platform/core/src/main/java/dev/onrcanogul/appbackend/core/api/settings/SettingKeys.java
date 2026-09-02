@@ -1,4 +1,4 @@
-package dev.onrcanogul.appbackend.core.api.port;
+package dev.onrcanogul.appbackend.core.api.settings;
 
 /**
  * The setting keys the platform itself understands.
@@ -33,6 +33,20 @@ public final class SettingKeys {
 
     /** How long a deletion request waits before erasure runs. Duration. */
     public static final String DELETION_GRACE_PERIOD = "privacy.deletion.grace-period";
+
+    /**
+     * Makes every cache read a miss and every write a no-op, without dropping the Redis
+     * connection. Boolean.
+     *
+     * <p>Distinct from {@code app.cache.enabled}, which decides at startup whether the Redis
+     * beans exist at all and therefore cannot change while running. This is the runtime
+     * switch: for ruling the cache out as the cause of something, or shedding load from a
+     * struggling Redis without a redeploy.
+     */
+    public static final String CACHE_BYPASS = "cache.bypass";
+
+    /** TTL used by cache writes that do not name one. Duration. */
+    public static final String CACHE_DEFAULT_TTL = "cache.default-ttl";
 
     private SettingKeys() {
     }

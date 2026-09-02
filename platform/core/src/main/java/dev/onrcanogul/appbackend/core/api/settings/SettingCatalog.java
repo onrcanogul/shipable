@@ -1,6 +1,6 @@
-package dev.onrcanogul.appbackend.appconfig.api.port;
+package dev.onrcanogul.appbackend.core.api.settings;
 
-import dev.onrcanogul.appbackend.appconfig.api.model.SettingDefinition;
+import dev.onrcanogul.appbackend.core.api.settings.SettingDefinition;
 import java.util.List;
 
 /**

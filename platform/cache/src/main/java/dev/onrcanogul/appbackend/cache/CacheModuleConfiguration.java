@@ -2,6 +2,7 @@ package dev.onrcanogul.appbackend.cache;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.onrcanogul.appbackend.cache.api.port.CacheService;
+import dev.onrcanogul.appbackend.cache.internal.CacheSettingCatalog;
 import dev.onrcanogul.appbackend.cache.internal.redis.NoopCacheService;
 import dev.onrcanogul.appbackend.cache.internal.redis.RedisCacheService;
 import dev.onrcanogul.appbackend.cache.internal.redis.RedisIdempotencyStore;
@@ -10,6 +11,8 @@ import dev.onrcanogul.appbackend.core.api.port.IdempotencyStore;
 import dev.onrcanogul.appbackend.core.api.support.InMemoryIdempotencyStore;
 import dev.onrcanogul.appbackend.core.api.support.InMemoryRateLimiter;
 import dev.onrcanogul.appbackend.core.api.port.RateLimiter;
+import dev.onrcanogul.appbackend.core.api.settings.RuntimeSettings;
+import dev.onrcanogul.appbackend.core.api.settings.SettingCatalog;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -44,13 +47,27 @@ public class CacheModuleConfiguration {
     @Primary
     @ConditionalOnProperty(prefix = "app.cache", name = "enabled", havingValue = "true")
     public CacheService redisCacheService(
-            StringRedisTemplate redis, ObjectMapper objectMapper, CacheProperties properties) {
-        return new RedisCacheService(redis, objectMapper, properties);
+            StringRedisTemplate redis,
+            ObjectMapper objectMapper,
+            CacheProperties properties,
+            RuntimeSettings settings) {
+        return new RedisCacheService(redis, objectMapper, properties, settings);
     }
 
     /**
      * Present whether or not Redis is on, so callers never have to check.
      */
+    /**
+     * Declares the cache settings an operator can change while the application runs.
+     *
+     * <p>Registered whether or not Redis is on, so the admin listing does not change shape
+     * depending on configuration.
+     */
+    @Bean
+    public SettingCatalog cacheSettingCatalog(CacheProperties properties) {
+        return new CacheSettingCatalog(properties);
+    }
+
     @Bean
     @ConditionalOnProperty(prefix = "app.cache", name = "enabled", havingValue = "false", matchIfMissing = true)
     public CacheService noopCacheService() {

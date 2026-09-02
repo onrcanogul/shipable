@@ -15,7 +15,7 @@ import dev.onrcanogul.appbackend.appconfig.internal.persistence.repository.Featu
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.repository.PlatformConfigRepository;
 import dev.onrcanogul.appbackend.core.CoreProperties;
 import dev.onrcanogul.appbackend.core.api.context.ClientPlatform;
-import dev.onrcanogul.appbackend.core.api.port.RuntimeSettings;
+import dev.onrcanogul.appbackend.core.api.settings.RuntimeSettings;
 import dev.onrcanogul.appbackend.core.api.web.ProblemResponseWriter;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;

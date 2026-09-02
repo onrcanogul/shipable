@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.onrcanogul.appbackend.core.api.port.IdempotencyStore;
 import dev.onrcanogul.appbackend.core.api.port.RateLimitPolicy;
 import dev.onrcanogul.appbackend.core.api.port.RateLimiter;
-import dev.onrcanogul.appbackend.core.api.port.RuntimeSettings;
+import dev.onrcanogul.appbackend.core.api.settings.RuntimeSettings;
 import dev.onrcanogul.appbackend.core.api.web.ProblemResponseWriter;
 import dev.onrcanogul.appbackend.core.api.support.InMemoryIdempotencyStore;
 import dev.onrcanogul.appbackend.core.api.support.InMemoryRateLimiter;

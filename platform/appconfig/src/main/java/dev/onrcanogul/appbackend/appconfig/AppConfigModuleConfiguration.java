@@ -4,7 +4,7 @@ import dev.onrcanogul.appbackend.appconfig.api.port.FeatureFlagAdminService;
 import dev.onrcanogul.appbackend.appconfig.api.port.FeatureFlags;
 import dev.onrcanogul.appbackend.appconfig.api.port.PlatformConfigAdminService;
 import dev.onrcanogul.appbackend.appconfig.api.port.RemoteConfigService;
-import dev.onrcanogul.appbackend.appconfig.api.port.SettingCatalog;
+import dev.onrcanogul.appbackend.core.api.settings.SettingCatalog;
 import dev.onrcanogul.appbackend.appconfig.api.port.SettingsAdminService;
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.repository.AppSettingRepository;
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.repository.FeatureFlagRepository;
@@ -19,7 +19,7 @@ import dev.onrcanogul.appbackend.appconfig.internal.service.PlatformSettingCatal
 import dev.onrcanogul.appbackend.appconfig.internal.web.MinimumVersionFilter;
 import dev.onrcanogul.appbackend.appconfig.internal.web.RemoteConfigController;
 import dev.onrcanogul.appbackend.core.CoreProperties;
-import dev.onrcanogul.appbackend.core.api.port.RuntimeSettings;
+import dev.onrcanogul.appbackend.core.api.settings.RuntimeSettings;
 import dev.onrcanogul.appbackend.core.api.web.ProblemResponseWriter;
 import java.util.List;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

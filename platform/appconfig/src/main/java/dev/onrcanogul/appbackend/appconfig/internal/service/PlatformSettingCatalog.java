@@ -1,11 +1,11 @@
 package dev.onrcanogul.appbackend.appconfig.internal.service;
 
 import dev.onrcanogul.appbackend.appconfig.AppConfigProperties;
-import dev.onrcanogul.appbackend.appconfig.api.model.SettingDefinition;
-import dev.onrcanogul.appbackend.appconfig.api.model.SettingType;
-import dev.onrcanogul.appbackend.appconfig.api.port.SettingCatalog;
+import dev.onrcanogul.appbackend.core.api.settings.SettingDefinition;
+import dev.onrcanogul.appbackend.core.api.settings.SettingType;
+import dev.onrcanogul.appbackend.core.api.settings.SettingCatalog;
 import dev.onrcanogul.appbackend.core.CoreProperties;
-import dev.onrcanogul.appbackend.core.api.port.SettingKeys;
+import dev.onrcanogul.appbackend.core.api.settings.SettingKeys;
 import java.util.List;
 
 /**

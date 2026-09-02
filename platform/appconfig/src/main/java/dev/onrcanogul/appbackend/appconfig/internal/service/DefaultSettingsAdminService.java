@@ -1,8 +1,8 @@
 package dev.onrcanogul.appbackend.appconfig.internal.service;
 
-import dev.onrcanogul.appbackend.appconfig.api.model.SettingDefinition;
+import dev.onrcanogul.appbackend.core.api.settings.SettingDefinition;
 import dev.onrcanogul.appbackend.appconfig.api.model.SettingView;
-import dev.onrcanogul.appbackend.appconfig.api.port.SettingCatalog;
+import dev.onrcanogul.appbackend.core.api.settings.SettingCatalog;
 import dev.onrcanogul.appbackend.appconfig.api.port.SettingsAdminService;
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.entity.AppSettingEntity;
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.repository.AppSettingRepository;

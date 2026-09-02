@@ -168,6 +168,24 @@ Only keys declared in a `SettingCatalog` can be written, and values are validate
 the declared type. Without that, the table fills with typos — each one a setting somebody
 believes they changed.
 
+`SettingCatalog`, `SettingDefinition` and `SettingType` live in `core`, for the same reason
+`UserDataContributor` does: a module declares its settings without depending on the module
+that stores them. `appconfig` collects every catalog; `cache` publishes its own.
+
+**Not everything can be a runtime setting.** Two categories cannot, and pretending otherwise
+would offer a switch that appears to work and does nothing:
+
+- **Anything that decides which beans exist.** `app.cache.enabled` selects the Redis
+  implementations at startup; Spring cannot re-wire beans that are already injected.
+- **Connection details.** Changing a Redis or database host means tearing down a connection
+  pool.
+
+Those stay in `application.yml` and the environment. Everything read *per call* can be a
+setting — `core.rate-limit.*`, `cache.bypass`, `cache.default-ttl` — and each one follows
+the same shape: `settings.getX(key, bootDefault)`, where the default comes from the bound
+`@ConfigurationProperties`. A stored value wins; nothing stored means the configured value
+applies; a malformed stored value falls back rather than throwing.
+
 ## Environments
 
 Two: `dev` and `prod`, selected with `SPRING_PROFILES_ACTIVE`. Each is a separate

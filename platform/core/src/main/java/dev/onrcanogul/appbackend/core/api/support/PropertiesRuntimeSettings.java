@@ -1,6 +1,6 @@
 package dev.onrcanogul.appbackend.core.api.support;
 
-import dev.onrcanogul.appbackend.core.api.port.RuntimeSettings;
+import dev.onrcanogul.appbackend.core.api.settings.RuntimeSettings;
 import java.util.Optional;
 
 /**

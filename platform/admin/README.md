@@ -33,6 +33,8 @@ All under `/api/admin/v1`, all requiring `X-Admin-Key`.
 | `appconfig.version-gate.enabled` | boolean | The force-update gate's off switch |
 | `appconfig.maintenance.enabled` | boolean | Tell clients to show a maintenance screen |
 | `appconfig.maintenance.message` | string | What that screen says |
+| `cache.bypass` | boolean | Cache off without dropping the Redis connection |
+| `cache.default-ttl` | duration | TTL for cache writes that do not name one |
 
 Your app adds its own by publishing a `SettingCatalog` bean from `domain`; they appear in
 the listing with no change here.

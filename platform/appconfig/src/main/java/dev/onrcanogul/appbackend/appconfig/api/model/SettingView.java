@@ -1,5 +1,6 @@
 package dev.onrcanogul.appbackend.appconfig.api.model;
 
+import dev.onrcanogul.appbackend.core.api.settings.SettingType;
 import java.time.Instant;
 
 /**

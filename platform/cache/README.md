@@ -30,6 +30,21 @@ It also publishes `@Primary` implementations of core's `RateLimiter` and
 
 Spring wiring: `CacheModuleConfiguration`.
 
+## Runtime settings it declares
+
+| Key | Type | What it does |
+| --- | --- | --- |
+| `cache.bypass` | boolean | Every read a miss, every write a no-op — without dropping the Redis connection |
+| `cache.default-ttl` | duration | TTL for writes that do not name one; a caller's explicit TTL still wins |
+
+Both are read on every call, so the admin API changes them without a redeploy. With nothing
+stored, the values from `app.cache.*` apply.
+
+**What is deliberately not a setting:** `app.cache.enabled` and the connection details.
+`enabled` decides which beans exist at startup, and the connection pool is built once —
+neither can change while running, and listing them would offer a switch that looks like it
+works. Use `cache.bypass` for the runtime equivalent of turning the cache off.
+
 ## Decisions worth knowing
 
 - **Off by default.** A fresh clone runs with no Redis container. This is the one thing to

@@ -2,7 +2,7 @@ package dev.onrcanogul.appbackend.appconfig.internal.service;
 
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.entity.AppSettingEntity;
 import dev.onrcanogul.appbackend.appconfig.internal.persistence.repository.AppSettingRepository;
-import dev.onrcanogul.appbackend.core.api.port.RuntimeSettings;
+import dev.onrcanogul.appbackend.core.api.settings.RuntimeSettings;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;

@@ -8,8 +8,12 @@ import dev.onrcanogul.appbackend.cache.internal.redis.NoopCacheService;
 import dev.onrcanogul.appbackend.cache.internal.redis.RedisCacheService;
 import dev.onrcanogul.appbackend.core.api.port.IdempotencyStore;
 import dev.onrcanogul.appbackend.core.api.port.RateLimiter;
+import dev.onrcanogul.appbackend.core.api.settings.SettingCatalog;
+import dev.onrcanogul.appbackend.core.api.settings.SettingDefinition;
 import dev.onrcanogul.appbackend.core.api.support.InMemoryIdempotencyStore;
+import dev.onrcanogul.appbackend.core.api.settings.RuntimeSettings;
 import dev.onrcanogul.appbackend.core.api.support.InMemoryRateLimiter;
+import dev.onrcanogul.appbackend.core.api.support.PropertiesRuntimeSettings;
 import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +39,9 @@ class CacheModuleContextTest {
             .withBean(ObjectMapper.class, ObjectMapper::new)
             .withBean(InMemoryRateLimiter.class, () -> new InMemoryRateLimiter(Clock.systemUTC()))
             .withBean(InMemoryIdempotencyStore.class, () -> new InMemoryIdempotencyStore(Clock.systemUTC()))
+            // No stored overrides, so every setting falls back to app.cache.* - the state a
+            // fresh deployment is in.
+            .withBean(RuntimeSettings.class, PropertiesRuntimeSettings::new)
             .withUserConfiguration(CacheModuleConfiguration.class);
 
     @Test
@@ -75,6 +82,34 @@ class CacheModuleContextTest {
                             .isNotInstanceOf(InMemoryIdempotencyStore.class);
                     assertThat(context).hasSingleBean(InMemoryRateLimiter.class);
                 });
+    }
+
+    @Test
+    @DisplayName("the module declares its runtime settings, and only the ones that can work")
+    void declaresItsRuntimeSettings() {
+        runner.run(context -> {
+            var keys = context.getBean(SettingCatalog.class).definitions().stream()
+                    .map(SettingDefinition::key)
+                    .toList();
+
+            assertThat(keys).containsExactlyInAnyOrder("cache.bypass", "cache.default-ttl");
+            // Absent on purpose: both need a restart, so offering them would be a switch
+            // that looks like it works and does nothing.
+            assertThat(keys).doesNotContain("app.cache.enabled", "spring.data.redis.host");
+        });
+    }
+
+    @Test
+    @DisplayName("the catalog reports this deployment's configured TTL as the default")
+    void catalogShowsConfiguredTtl() {
+        runner.withPropertyValues("app.cache.default-ttl=45s").run(context -> {
+            var ttl = context.getBean(SettingCatalog.class).definitions().stream()
+                    .filter(definition -> definition.key().equals("cache.default-ttl"))
+                    .findFirst()
+                    .orElseThrow();
+
+            assertThat(ttl.bootDefault()).isEqualTo(Duration.ofSeconds(45).toString());
+        });
     }
 
     @Test

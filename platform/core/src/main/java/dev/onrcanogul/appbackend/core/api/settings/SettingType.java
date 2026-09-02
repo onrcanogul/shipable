@@ -1,6 +1,6 @@
-package dev.onrcanogul.appbackend.appconfig.api.model;
+package dev.onrcanogul.appbackend.core.api.settings;
 
-import dev.onrcanogul.appbackend.core.api.port.DurationParser;
+import dev.onrcanogul.appbackend.core.api.settings.DurationParser;
 
 /**
  * What a setting's value means, so the admin API can validate a write and a UI can render

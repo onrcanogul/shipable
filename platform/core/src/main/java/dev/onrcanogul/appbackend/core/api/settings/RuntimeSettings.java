@@ -1,4 +1,4 @@
-package dev.onrcanogul.appbackend.core.api.port;
+package dev.onrcanogul.appbackend.core.api.settings;
 
 import java.time.Duration;
 import java.util.Optional;
