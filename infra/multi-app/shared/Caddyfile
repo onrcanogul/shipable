@@ -1,0 +1,99 @@
+# One Caddy in front of everything on this server.
+#
+# Nothing here assumes what is behind it. A backend from this template, a Node service, a
+# static site, a container someone else wrote - they are all just a site block and a
+# reverse_proxy target. The only requirement is that the container joins the `appnet`
+# network, so Docker's DNS can resolve it by name.
+#
+# Adding a site: copy a block, change the domain and the target, then
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+# No restart, no dropped connections.
+
+{
+	email {$ACME_EMAIL}
+}
+
+# ---------------------------------------------------------------------------
+# Reusable snippets. Import the ones that apply; none of them are mandatory.
+# ---------------------------------------------------------------------------
+
+# Generic, safe for anything.
+(baseline) {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		# Otherwise the response announces exactly what to look up exploits for.
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Only for backends built from this template. These two paths mean nothing to anything
+# else, so importing this elsewhere is harmless but pointless.
+(template-backend) {
+	# Actuator is for monitoring, not the internet: it can report configuration and
+	# environment details.
+	@actuator path /actuator/*
+	respond @actuator 404
+
+	# The admin API can change rate limits, force every client to update and enable
+	# maintenance mode. Blocked at the edge; reach it through an SSH tunnel to the app's
+	# loopback port:
+	#   ssh -L 8081:localhost:8081 user@server
+	@admin path /api/admin/*
+	respond @admin 404
+}
+
+# The app needs the caller's real address for rate limiting, and it is only trustworthy
+# because this proxy sets it and the app publishes no public port.
+(forwarded-ip) {
+	header_up X-Forwarded-For {remote_host}
+	header_up X-Real-IP {remote_host}
+}
+
+# ---------------------------------------------------------------------------
+# Sites. Everything below is an example - replace it.
+# ---------------------------------------------------------------------------
+
+# A backend from this template.
+api.app-one.com {
+	import baseline
+	import template-backend
+	reverse_proxy app-one-api:8080 {
+		import forwarded-ip
+	}
+}
+
+api.app-two.com {
+	import baseline
+	import template-backend
+	reverse_proxy app-two-api:8080 {
+		import forwarded-ip
+	}
+}
+
+# Something else entirely - a Node service, a Go binary, whatever. Same treatment minus
+# the template-specific blocks.
+#
+# api.other-thing.com {
+# 	import baseline
+# 	reverse_proxy other-thing:3000 {
+# 		import forwarded-ip
+# 	}
+# }
+
+# A static site served straight from a mounted directory, no container behind it.
+#
+# www.example.com {
+# 	import baseline
+# 	root * /srv/www.example.com
+# 	file_server
+# }

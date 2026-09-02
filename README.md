@@ -33,8 +33,8 @@ Clone it, write your app in `domain`, and never build this layer again.
     # APP_CACHE_ENABLED=true in .env, then
     docker compose --profile redis up --build
 
-- API — https://localhost/api/v1/health
-- Swagger UI — https://localhost/swagger-ui.html
+- API — http://localhost:8080/api/v1/health
+- Swagger UI — http://localhost:8080/swagger-ui.html
 
 Without Docker:
 
@@ -74,6 +74,7 @@ and — explicitly — what it does not do.
 | [docs/BUILDING-YOUR-APP.md](docs/BUILDING-YOUR-APP.md) | Rename it, write your first feature, ship |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The rules and why they are there |
 | [infra/README.md](infra/README.md) | Running it locally and on a VPS |
+| [docs/MULTIPLE-APPS-ON-ONE-SERVER.md](docs/MULTIPLE-APPS-ON-ONE-SERVER.md) | Several backends on one machine |
 
 ## Honest status
 

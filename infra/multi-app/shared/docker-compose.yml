@@ -1,0 +1,106 @@
+# Shared infrastructure for one server: one Caddy at the edge, one Postgres, one Redis.
+#
+#   cd infra/multi-app/shared && cp .env.example .env && $EDITOR .env
+#   docker compose up -d
+#
+# Start this FIRST. It owns ports 80 and 443 - the reason it has to exist at all, since
+# only one process can bind them - and it creates the `appnet` network.
+#
+# Nothing here is specific to this template. Anything on the server can join `appnet` and
+# be fronted by this Caddy: another backend, a Node service, a static site. Apps that do
+# not want Postgres or Redis simply do not connect to them.
+#
+# Adding something means a site block in Caddyfile, and a database if it wants one. This
+# file does not change.
+
+name: shared-infra
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: ${CADDY_MEM_LIMIT:-128m}
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Named volumes, not bind mounts: losing these means re-issuing every certificate,
+      # and Let's Encrypt rate-limits that per domain per week.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - appnet
+
+  # Optional for any given service. An app that brings its own database, or needs none,
+  # just does not connect here.
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # A ceiling, not a reservation. Postgres uses free host memory as page cache on top
+    # of this, which is why it is worth leaving the box some headroom.
+    mem_limit: ${POSTGRES_MEM_LIMIT:-2g}
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      # No POSTGRES_DB: each app gets its own database, created by the operator.
+      # See create-app-database.sh.
+    command:
+      # Each app runs a pool; with several apps the default of 100 gets tight. Raising it
+      # costs a little shared memory per slot.
+      - "postgres"
+      - "-c"
+      - "max_connections=${POSTGRES_MAX_CONNECTIONS:-200}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # No port published: reachable from app containers over appnet and nowhere else.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - appnet
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: ${REDIS_MEM_LIMIT:-512m}
+    # Shared. Backends from this template cannot read each other's entries because each
+    # sets a different APP_CACHE_KEY_PREFIX, which is namespaced into every key. Anything
+    # else sharing this Redis should namespace its own keys the same way, or use a
+    # separate database index.
+    #
+    # No persistence: everything in here - rate limit counters, cached values, idempotency
+    # claims - is reconstructible. allkeys-lru makes Redis evict rather than refuse writes
+    # when it fills.
+    command: >
+      redis-server
+      --save ''
+      --appendonly no
+      --maxmemory ${REDIS_MAXMEMORY:-384mb}
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    # A fixed name, because other stacks join it as an external network. Without this
+    # Compose would prefix it with the project name and nothing would find it.
+    #
+    # Joining is all it takes to be reachable by Caddy - the stack does not have to come
+    # from this template, or even be a web application.
+    name: appnet
+    driver: bridge
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

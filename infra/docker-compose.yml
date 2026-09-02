@@ -1,9 +1,18 @@
-# Local and single-server production run.
+# One app, on one machine.
 #
 #   cd infra && cp .env.example .env && $EDITOR .env
-#   docker compose up --build
 #
-# Three containers: Postgres, the API, and Caddy in front doing TLS.
+#   docker compose up --build                       local: postgres + api
+#   docker compose --profile redis up --build       ... and Redis
+#   docker compose --profile standalone up -d       server: ... and Caddy doing TLS
+#
+# Caddy sits behind a profile because it is the one container that cannot be shared
+# by two of these stacks: only one process can bind 80 and 443. Locally you do not
+# want it either - going straight to http://localhost:8080 beats clicking through a
+# self-signed certificate warning.
+#
+# Running several apps on one server? See infra/multi-app/, where Caddy, Postgres and
+# Redis are a separate shared stack.
 
 name: app-backend
 
@@ -11,6 +20,9 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Postgres uses whatever is left over as page cache, so this is a ceiling rather
+    # than a reservation.
+    mem_limit: ${APP_POSTGRES_MEM_LIMIT:-1g}
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -29,6 +41,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: ${APP_REDIS_MEM_LIMIT:-512m}
     # Only started with: docker compose --profile redis up
     # A fresh clone runs without it; turn it on together with APP_CACHE_ENABLED=true.
     profiles: [redis]
@@ -54,6 +67,11 @@ services:
       context: ..
       dockerfile: infra/Dockerfile
     restart: unless-stopped
+    # This is not optional once anything else runs on the box. The JVM is started with
+    # -XX:MaxRAMPercentage=75, and with no limit that percentage is taken from the
+    # HOST's memory - so two of these would each plan to use three quarters of the
+    # machine. With a limit set, the JVM reads the cgroup and sizes itself correctly.
+    mem_limit: ${APP_MEM_LIMIT:-1g}
     depends_on:
       postgres:
         # Wait for Postgres to accept connections, not merely to have started. Flyway
@@ -110,6 +128,11 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # Only started with: docker compose --profile standalone up
+    # Skip it locally (go straight to http://localhost:8080) and on a multi-app server,
+    # where a single shared Caddy fronts every app - see infra/multi-app/.
+    profiles: [standalone]
+    mem_limit: ${APP_CADDY_MEM_LIMIT:-128m}
     depends_on:
       - api
     environment:
