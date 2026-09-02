@@ -33,21 +33,43 @@ API is only on loopback, so nothing answers on the domain at all.
 
 TLS is issued and renewed by Caddy with no cron job and no certbot.
 
-## Production, on a machine that hosts other things
+## Behind a proxy you already run
 
-Use [`attached/`](attached/) instead. It starts the API alone and expects the proxy, the
-database and Redis to already exist on the machine — put there by whoever runs the server,
-and shared with whatever else is hosted there.
+Only one process can bind 80 and 443, so on a machine that already has a reverse proxy —
+because something else is hosted there too — this app must not bring its own.
 
-Caddy cannot be duplicated (only one process can bind 80 and 443), so on such a machine the
-edge belongs to the server, not to this app.
+Skip the `standalone` profile. The API is then reachable at `127.0.0.1:${APP_HOST_PORT}`
+and your proxy points at that. Set `APP_HOST_PORT` to something free; 8080 is the default.
 
-What the app needs from that environment — the network, the four things the proxy must do,
-its own database — is in
-[`../docs/RUNNING-ON-A-SHARED-SERVER.md`](../docs/RUNNING-ON-A-SHARED-SERVER.md). This
-repository deliberately ships no server-level configuration: no site blocks for other
-applications, no shared stack, no backup job. That is a different concern with a different
-lifecycle, and vendoring it into every app clone is how it drifts.
+    docker compose up -d --build
+
+Four things that proxy has to do:
+
+| Requirement | Why |
+| --- | --- |
+| Terminate TLS | The app speaks plain HTTP |
+| Set `X-Forwarded-For` | Rate limiting is keyed on the caller's address. The app trusts the header, which is only safe because its port is on loopback |
+| Block `/api/admin/*` | It can change rate limits, force every client to update, and enable maintenance mode |
+| Block `/actuator/*` | It reports configuration and environment details |
+
+As a Caddy block — the shape, whatever proxy you use:
+
+    api.example.com {
+        @blocked path /api/admin/* /actuator/*
+        respond @blocked 404
+
+        reverse_proxy 127.0.0.1:8080 {
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+
+That proxy, and everything else about the machine, belongs to the server rather than to
+this repository. This is one application; it does not ship a server.
+
+If the machine's Postgres is shared, give this app a **database of its own**, not a schema
+in someone else's: the schemas here are named `identity`, `billing`, `quota`, `appconfig`
+and `privacy`, which would collide. Same for Redis — `APP_CACHE_KEY_PREFIX` is namespaced
+into every key it writes.
 
 ## What is deliberately not exposed
 
@@ -62,7 +84,6 @@ lifecycle, and vendoring it into every app clone is how it drifts.
 | File | Purpose |
 | --- | --- |
 | `docker-compose.yml` | postgres + api; `--profile redis` adds Redis, `--profile standalone` adds Caddy |
-| `attached/` | The API alone, for a machine whose proxy and database already exist |
 | `Dockerfile` | Two-stage build; JRE runtime, non-root user, no source in the image |
 | `Caddyfile` | TLS, proxying, security headers, actuator block |
 | `.env.example` | Every variable, with notes on how to generate the secrets |

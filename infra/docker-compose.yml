@@ -11,8 +11,9 @@
 # want it either - going straight to http://localhost:8080 beats clicking through a
 # self-signed certificate warning.
 #
-# On a machine that hosts other things too, the proxy and the database belong to the
-# server rather than to this app: use infra/attached/ instead.
+# On a machine that already has a reverse proxy, skip the standalone profile and point
+# that proxy at 127.0.0.1:${APP_HOST_PORT}. See "Behind a proxy you already run" in
+# README.md for what the proxy has to do.
 
 name: app-backend
 
@@ -112,12 +113,14 @@ services:
       APP_DELETION_GRACE_PERIOD: ${APP_DELETION_GRACE_PERIOD}
       APP_PORT: 8080
       APP_LOG_LEVEL: ${APP_LOG_LEVEL}
-    # Bound to loopback only. Caddy is still the only route from the internet, so
-    # TLS cannot be bypassed - but the port is reachable on the server itself,
-    # which is what makes an SSH tunnel to the admin API possible:
+    # Loopback only: never reachable from the internet, always reachable on the machine
+    # itself. That is what makes two things possible - an SSH tunnel to the admin API,
     #   ssh -L 8080:localhost:8080 user@server
+    # and pointing a proxy you run yourself at this port instead of using the Caddy below.
+    #
+    # The port is configurable so a second app can live on the same machine at 8081.
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${APP_HOST_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
       interval: 15s
@@ -130,7 +133,7 @@ services:
     restart: unless-stopped
     # Only started with: docker compose --profile standalone up
     # Skip it locally (go straight to http://localhost:8080), and on a machine that
-    # already has a proxy of its own - see infra/attached/.
+    # already has a proxy of its own.
     profiles: [standalone]
     mem_limit: ${APP_CADDY_MEM_LIMIT:-128m}
     depends_on:

@@ -74,7 +74,6 @@ and — explicitly — what it does not do.
 | [docs/BUILDING-YOUR-APP.md](docs/BUILDING-YOUR-APP.md) | Rename it, write your first feature, ship |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The rules and why they are there |
 | [infra/README.md](infra/README.md) | Running it locally and on a VPS |
-| [docs/RUNNING-ON-A-SHARED-SERVER.md](docs/RUNNING-ON-A-SHARED-SERVER.md) | Deploying onto a machine that hosts other things |
 
 ## Honest status
 
